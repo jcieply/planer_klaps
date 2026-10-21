@@ -1,0 +1,50 @@
+{
+  "name": "klaps-planer",
+  "productName": "Klaps Planer",
+  "version": "1.0.0",
+  "description": "Klaps Planer – planowanie zdjęć: rozpiska, kalendarzówka, plan pracy, shotlista, ekipa",
+  "main": "electron/main.js",
+  "author": "Klaps Planer",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "prepare-app": "node scripts/prepare.js",
+    "start": "npm run prepare-app && electron .",
+    "dist": "npm run prepare-app && electron-builder --mac --universal",
+    "test": "node test/store.test.js"
+  },
+  "dependencies": {
+    "@fontsource/barlow-condensed": "^5.0.0",
+    "@fontsource/courier-prime": "^5.0.0",
+    "@fontsource/ibm-plex-sans": "^5.0.0",
+    "pdfjs-dist": "3.11.174"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "pl.klaps.planer",
+    "productName": "Klaps Planer",
+    "files": [
+      "electron/**",
+      "app/**",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "dmg": {
+      "title": "Klaps Planer"
+    }
+  }
+}
