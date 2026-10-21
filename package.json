@@ -10,7 +10,7 @@
   "scripts": {
     "prepare-app": "node scripts/prepare.js",
     "start": "npm run prepare-app && electron .",
-    "dist": "npm run prepare-app && electron-builder --mac dmg",
+    "dist": "npm run prepare-app && electron-builder --mac dmg --publish never",
     "test": "node test/store.test.js"
   },
   "dependencies": {
@@ -42,7 +42,8 @@
           ]
         }
       ],
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "identity": "-"
     },
     "dmg": {
       "title": "Klaps Planer"
