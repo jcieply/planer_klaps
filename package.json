@@ -10,7 +10,7 @@
   "scripts": {
     "prepare-app": "node scripts/prepare.js",
     "start": "npm run prepare-app && electron .",
-    "dist": "npm run prepare-app && electron-builder --mac --universal",
+    "dist": "npm run prepare-app && electron-builder --mac dmg",
     "test": "node test/store.test.js"
   },
   "dependencies": {
@@ -37,7 +37,8 @@
         {
           "target": "dmg",
           "arch": [
-            "universal"
+            "arm64",
+            "x64"
           ]
         }
       ],
