@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const root = path.join(__dirname, '..');
+const IOS = process.argv.includes('ios');
 const out = path.join(root, 'app');
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(path.join(out, 'fonts'), { recursive: true });
@@ -33,3 +34,19 @@ for (const [pkg, weights] of want) {
 }
 fs.writeFileSync(path.join(out, 'fonts', 'fonts.css'), css);
 console.log('app/ gotowe:', fs.readdirSync(out).join(', '));
+
+// ---- iOS (Capacitor): rdzeń Capacitora + most natywny przed kodem aplikacji ----
+if (IOS) {
+  const cands = ['@capacitor/core/dist/capacitor.js', '@capacitor/core/dist/capacitor.min.js'];
+  const core = cands.map((c) => nm(c)).find((f) => fs.existsSync(f));
+  if (!core) { console.error('Nie znaleziono @capacitor/core/dist/capacitor.js – uruchom npm install'); process.exit(1); }
+  fs.copyFileSync(core, path.join(out, 'vendor', 'capacitor.js'));
+  fs.copyFileSync(path.join(root, 'mobile', 'native.js'), path.join(out, 'native.js'));
+  const ip = path.join(out, 'index.html');
+  let html = fs.readFileSync(ip, 'utf8');
+  html = html.replace('content="width=device-width,initial-scale=1"', 'content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"');
+  const at = html.indexOf('<script>');
+  html = html.slice(0, at) + '<script src="vendor/capacitor.js"></script><script src="native.js"></script>\n' + html.slice(at);
+  fs.writeFileSync(ip, html);
+  console.log('app/ przygotowane dla iOS');
+}

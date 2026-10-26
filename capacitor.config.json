@@ -1,0 +1,10 @@
+{
+  "appId": "pl.klaps.planer",
+  "appName": "Klaps Planer",
+  "webDir": "app",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#14161a",
+    "limitsNavigationsToAppBoundDomains": false
+  }
+}
