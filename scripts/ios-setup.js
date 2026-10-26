@@ -23,6 +23,12 @@ if (!fs.existsSync(iosDir)) {
 }
 run('npx cap sync ios');
 
+// Xcode 26+ wspiera iOS od 15.0 – podnosimy minimalną wersję (usuwa ostrzeżenie o 14.0)
+const pbxFile = path.join(root, 'ios', 'App', 'App.xcodeproj', 'project.pbxproj');
+fs.writeFileSync(pbxFile, fs.readFileSync(pbxFile, 'utf8').replace(/IPHONEOS_DEPLOYMENT_TARGET = 1[0-4]\.\d+;/g, 'IPHONEOS_DEPLOYMENT_TARGET = 15.0;'));
+const spm = path.join(root, 'ios', 'App', 'CapApp-SPM', 'Package.swift');
+if (fs.existsSync(spm)) fs.writeFileSync(spm, fs.readFileSync(spm, 'utf8').replace(/\.iOS\(\.v1[0-4]\)/g, '.iOS(.v15)'));
+
 // Info.plist: zdjęcia map (wybór z galerii / aparat), pliki widoczne w aplikacji Pliki, nazwa na ekranie
 const plist = path.join(root, 'ios', 'App', 'App', 'Info.plist');
 let s = fs.readFileSync(plist, 'utf8');
