@@ -5,7 +5,11 @@ const { execSync } = require('child_process');
 const root = path.join(__dirname, '..');
 const run = (cmd) => execSync(cmd, { cwd: root, stdio: 'inherit' });
 if (!fs.existsSync(path.join(root, 'app', 'native.js'))) { console.error('Najpierw: npm run prepare-ios'); process.exit(1); }
-if (!fs.existsSync(path.join(root, 'ios'))) run('npx cap add ios');
+const iosDir = path.join(root, 'ios');
+// niedokończony folder ios/ (np. po przerwanym cap add) – zaczynamy od nowa
+if (fs.existsSync(iosDir) && !fs.existsSync(path.join(iosDir, 'App', 'App.xcodeproj'))) fs.rmSync(iosDir, { recursive: true, force: true });
+// Swift Package Manager – nie wymaga instalowania CocoaPods
+if (!fs.existsSync(iosDir)) run('npx cap add ios --packagemanager SPM');
 run('npx cap sync ios');
 
 // Info.plist: zdjęcia map (wybór z galerii / aparat), pliki widoczne w aplikacji Pliki, nazwa na ekranie
