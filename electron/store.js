@@ -27,16 +27,17 @@ function list(dir) {
   }
   return out;
 }
-function save(dir, id, meta, plan, script) {
+function save(dir, id, meta, plan, script, media) {
   ensure(dir);
-  writeAtomic(file(dir, id), JSON.stringify({ format: 'klaps-planer', version: 1, id, meta, plan, script }));
+  // media = mapki (obrazy) zapisane jako osobna część projektu
+  writeAtomic(file(dir, id), JSON.stringify({ format: 'klaps-planer', version: 2, id, meta, plan, script, media: media || '{}' }));
   return true;
 }
 function load(dir, id) {
   const f = file(dir, id);
   if (!fs.existsSync(f)) return null;
   const o = JSON.parse(fs.readFileSync(f, 'utf8'));
-  return { plan: o.plan, script: o.script };
+  return { plan: o.plan, script: o.script, media: o.media || '' };
 }
 function remove(dir, id) {
   const f = file(dir, id);

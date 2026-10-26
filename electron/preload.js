@@ -4,7 +4,7 @@ contextBridge.exposeInMainWorld('klapsDesktop', {
   pdfjsBase: 'klaps://app/vendor/pdfjs/',
   store: {
     list: () => ipcRenderer.invoke('store:list'),
-    save: (id, meta, plan, script) => ipcRenderer.invoke('store:save', id, meta, plan, script),
+    save: (id, meta, plan, script, media) => ipcRenderer.invoke('store:save', id, meta, plan, script, media),
     load: (id) => ipcRenderer.invoke('store:load', id),
     remove: (id) => ipcRenderer.invoke('store:remove', id)
   },

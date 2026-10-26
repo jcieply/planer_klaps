@@ -1,7 +1,7 @@
 {
   "name": "klaps-planer",
   "productName": "Klaps Planer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Klaps Planer – planowanie zdjęć: rozpiska, kalendarzówka, plan pracy, shotlista, ekipa",
   "main": "electron/main.js",
   "author": "Klaps Planer",

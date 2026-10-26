@@ -60,7 +60,7 @@ app.whenReady().then(() => {
   });
   const dir = projectsDir();
   ipcMain.handle('store:list', () => store.list(dir));
-  ipcMain.handle('store:save', (_e, id, meta, plan, script) => store.save(dir, id, meta, plan, script));
+  ipcMain.handle('store:save', (_e, id, meta, plan, script, media) => store.save(dir, id, meta, plan, script, media));
   ipcMain.handle('store:load', (_e, id) => store.load(dir, id));
   ipcMain.handle('store:remove', (_e, id) => store.remove(dir, id));
   ipcMain.handle('file:save', async (_e, name, data) => {

@@ -291,7 +291,7 @@ const Parser = (() => {
     const res = assemble(els, opts);
     const warnings = [];
     if (!res.scenes.length) warnings.push('Nie wykryto nagłówków scen (np. „WN. KUCHNIA – DZIEŃ”, „INT. KITCHEN - DAY”, „1. PLENER. ULICA. NOC”). Sprawdź format pliku albo dodaj sceny ręcznie.');
-    if (res.dupNums) warnings.push(`W ${res.dupNums} scenach numer się powtarza. Numery możesz poprawić w rozpisce.`);
+    if (res.dupNums) warnings.push({ text: 'W {n} scenach numer się powtarza. Numery możesz poprawić w rozpisce.', v: { n: res.dupNums } });
     const totalEighths = res.scenes.reduce((a, s) => a + s.eighths, 0);
     return Object.assign(res, {
       warnings,

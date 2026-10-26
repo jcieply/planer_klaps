@@ -1,5 +1,5 @@
 const fs = require('fs');
-const order = ['fonts.js','zip.js','xlsx.js','pdfdoc.js','parser.js','sample.js','core.js','reports.js','store.js','app1.js','app2.js','app2b.js','app3.js','boot.js'];
+const order = ['i18n.js','en.js','fonts.js','zip.js','xlsx.js','pdfdoc.js','parser.js','sample.js','core.js','reports.js','store.js','app1.js','app2.js','app2b.js','app3.js','boot.js'];
 let js = order.map((f) => `/* ---- ${f} ---- */\n` + fs.readFileSync('src/' + f, 'utf8')).join('\n');
 js = js.replace(/<\/script/gi, '<\\/script');
 const css = fs.readFileSync('src/style.css', 'utf8');

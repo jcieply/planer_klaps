@@ -115,7 +115,7 @@ const Pdf = (() => {
   const num = (n) => (Math.round(n * 100) / 100).toString();
 
   class Page {
-    constructor(doc, w, h) { this.doc = doc; this.ops = []; this.w = w || doc.pageW; this.h = h || doc.pageH; }
+    constructor(doc, w, h) { this.doc = doc; this.ops = []; this.used = new Set(); this.w = w || doc.pageW; this.h = h || doc.pageH; }
     text(x, y, str, o = {}) {
       str = String(str);
       if (!str) return;
@@ -129,6 +129,12 @@ const Pdf = (() => {
       if (o.fill) this.ops.push(`${rgb(o.fill)} rg ${num(x)} ${num(this.h - y - h)} ${num(w)} ${num(h)} re f`);
       if (o.stroke) this.ops.push(`${rgb(o.stroke)} RG ${num(o.lw || 0.5)} w ${num(x)} ${num(this.h - y - h)} ${num(w)} ${num(h)} re S`);
     }
+    /** obraz JPEG dodany wcześniej przez doc.addImage(); x, y = lewy górny róg */
+    image(key, x, y, w, h) {
+      const im = this.doc.images[key]; if (!im) return;
+      this.used.add(key);
+      this.ops.push(`q ${num(w)} 0 0 ${num(h)} ${num(x)} ${num(this.h - y - h)} cm /${im.name} Do Q`);
+    }
     line(x1, y1, x2, y2, o = {}) {
       this.ops.push(`${rgb(o.color || '999999')} RG ${num(o.lw || 0.5)} w ${o.dash ? '[2 2] 0 d' : '[] 0 d'} ${num(x1)} ${num(this.h - y1)} m ${num(x2)} ${num(this.h - y2)} l S`);
     }
@@ -137,7 +143,12 @@ const Pdf = (() => {
   class Doc {
     constructor(o = {}) {
       this.pageW = o.pageW || 841.89; this.pageH = o.pageH || 595.28;
-      this.fonts = {}; this.pages = []; this.info = o.info || {};
+      this.fonts = {}; this.pages = []; this.info = o.info || {}; this.images = {};
+    }
+    /** rejestruje obraz JPEG (bajty pliku, szerokość i wysokość w pikselach) */
+    addImage(key, bytes, w, h) {
+      if (!this.images[key]) this.images[key] = { name: 'Im' + (Object.keys(this.images).length + 1), bytes, w, h, gray: false };
+      return key;
     }
     addFont(slot, bytes, name, bold) {
       this.fonts[slot] = new Font('F' + (Object.keys(this.fonts).length + 1), new TTF(bytes), name, bold);
@@ -183,6 +194,9 @@ const Pdf = (() => {
       const pageObjs = this.pages.map(() => ({ page: next++, content: next++ }));
       const fontObjs = {};
       for (const slot of fontSlots) { fontObjs[slot] = { type0: next++, cid: next++, desc: next++, file: next++, uni: next++ }; }
+      const imgKeys = Object.keys(this.images).filter((k) => this.pages.some((pg) => pg.used.has(k)));
+      const imgObjs = {};
+      for (const k of imgKeys) imgObjs[k] = next++;
       const infoObj = next++;
       const total = next;
 
@@ -202,7 +216,8 @@ const Pdf = (() => {
       const fontRes = fontSlots.map((s) => `/${this.fonts[s].key} ${fontObjs[s].type0} 0 R`).join(' ');
       for (let i = 0; i < this.pages.length; i++) {
         const po = pageObjs[i];
-        objDict(po.page, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${num(this.pages[i].w)} ${num(this.pages[i].h)}] /Resources << /Font << ${fontRes} >> >> /Contents ${po.content} 0 R >>`);
+        const xo = [...this.pages[i].used].filter((k) => imgObjs[k]).map((k) => `/${this.images[k].name} ${imgObjs[k]} 0 R`).join(' ');
+        objDict(po.page, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${num(this.pages[i].w)} ${num(this.pages[i].h)}] /Resources << /Font << ${fontRes} >>${xo ? ` /XObject << ${xo} >>` : ''} >> /Contents ${po.content} 0 R >>`);
         await objStream(po.content, '', enc.encode(this.pages[i].ops.join('\n')), true);
       }
       for (const slot of fontSlots) {
@@ -224,6 +239,10 @@ const Pdf = (() => {
         }
         cm += 'endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend';
         await objStream(o.uni, '', enc.encode(cm), false);
+      }
+      for (const k of imgKeys) {
+        const im = this.images[k];
+        await objStream(imgObjs[k], `/Type /XObject /Subtype /Image /Width ${im.w} /Height ${im.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode `, im.bytes, false);
       }
       const hex16 = (s) => 'FEFF' + Array.from(String(s)).map((ch) => ch.charCodeAt(0).toString(16).padStart(4, '0')).join('');
       const d = new Date();

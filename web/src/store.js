@@ -30,12 +30,15 @@ const Store = (() => {
   function split(st) {
     const texts = {};
     const scenes = st.scenes.map((s) => { const c = Object.assign({}, s); texts[s.id] = c.text; delete c.text; return c; });
-    return { plan: JSON.stringify(Object.assign({}, st, { scenes })), script: JSON.stringify(texts) };
+    const plan = Object.assign({}, st, { scenes });
+    delete plan.media;
+    return { plan: JSON.stringify(plan), script: JSON.stringify(texts), media: JSON.stringify(st.media || {}) };
   }
-  function join(planStr, scriptStr) {
+  function join(planStr, scriptStr, mediaStr) {
     const st = JSON.parse(planStr);
     const texts = scriptStr ? JSON.parse(scriptStr) : {};
     st.scenes.forEach((s) => { s.text = texts[s.id] || ''; });
+    if (mediaStr) { try { st.media = JSON.parse(mediaStr); } catch (e) { st.media = st.media || {}; } }
     return Core.normalize(st);
   }
   const summary = (id, st) => ({ id, title: st.meta.title || '', updatedAt: Date.now(), scenes: st.scenes.length, days: st.days.filter((d) => d.kind === 'shoot').length, demo: !!st.demo });
@@ -62,14 +65,15 @@ const Store = (() => {
     const meta = summary(id, st);
     const lh = lastHash.get(id) || {};
     if (mode === 'desktop') {
-      await desk().save(id, meta, parts.plan, parts.script);
+      await desk().save(id, meta, parts.plan, parts.script, parts.media);
       return meta;
     }
     if (mode === 'db') {
       const cur = await db.doc('projects/' + id).get();
       const old = cur.exists ? cur.data().parts || {} : {};
-      const next = { plan: { n: (old.plan || {}).n || 0, h: (old.plan || {}).h }, script: { n: (old.script || {}).n || 0, h: (old.script || {}).h } };
-      for (const name of ['plan', 'script']) {
+      const next = {};
+      for (const name of ['plan', 'script', 'media']) next[name] = { n: (old[name] || {}).n || 0, h: (old[name] || {}).h };
+      for (const name of ['plan', 'script', 'media']) {
         const h = hash(parts[name]);
         if (lh[name] === h && next[name].h === h) continue;
         next[name] = { n: await writePart(id, name, parts[name], next[name].n), h };
@@ -77,12 +81,12 @@ const Store = (() => {
       }
       await db.doc('projects/' + id).set(Object.assign({}, meta, { parts: next }));
     } else if (mode === 'local') {
-      if (!lsSet('klaps.p.' + id, JSON.stringify({ plan: parts.plan, script: parts.script }))) throw new Error('Pamięć przeglądarki jest pełna');
+      if (!lsSet('klaps.p.' + id, JSON.stringify({ plan: parts.plan, script: parts.script, media: parts.media }))) throw new Error(T('Pamięć przeglądarki jest pełna. Usuń zbędne mapki albo zapisz kopię projektu do pliku.'));
       let idx = []; try { idx = JSON.parse(lsGet('klaps.idx') || '[]'); } catch (e) { idx = []; }
       idx = idx.filter((x) => x.id !== id); idx.push(meta);
       lsSet('klaps.idx', JSON.stringify(idx));
     } else {
-      mem.set(id, { meta, plan: parts.plan, script: parts.script });
+      mem.set(id, { meta, plan: parts.plan, script: parts.script, media: parts.media });
     }
     lastHash.set(id, lh);
     return meta;
@@ -91,7 +95,7 @@ const Store = (() => {
   async function load(id) {
     if (mode === 'desktop') {
       const o = await desk().load(id); if (!o) return null;
-      return join(o.plan, o.script);
+      return join(o.plan, o.script, o.media);
     }
     if (mode === 'db') {
       const d = await db.doc('projects/' + id).get();
@@ -103,18 +107,18 @@ const Store = (() => {
         for (let i = 0; i < info.n; i++) { const c = await db.doc(`projects/${id}/parts/${name}-${i}`).get(); s += c.exists ? c.data().d : ''; }
         return s;
       };
-      const plan = await read('plan'), script = await read('script');
-      lastHash.set(id, { plan: hash(plan), script: hash(script) });
-      return join(plan, script);
+      const plan = await read('plan'), script = await read('script'), media = await read('media');
+      lastHash.set(id, { plan: hash(plan), script: hash(script), media: hash(media) });
+      return join(plan, script, media);
     }
     if (mode === 'local') {
       const raw = lsGet('klaps.p.' + id); if (!raw) return null;
       const o = JSON.parse(raw);
-      lastHash.set(id, { plan: hash(o.plan), script: hash(o.script) });
-      return join(o.plan, o.script);
+      lastHash.set(id, { plan: hash(o.plan), script: hash(o.script), media: hash(o.media || '') });
+      return join(o.plan, o.script, o.media);
     }
     const m = mem.get(id);
-    return m ? join(m.plan, m.script) : null;
+    return m ? join(m.plan, m.script, m.media) : null;
   }
 
   async function remove(id) {
@@ -123,7 +127,7 @@ const Store = (() => {
     if (mode === 'db') {
       const d = await db.doc('projects/' + id).get();
       const p = d.exists ? d.data().parts || {} : {};
-      for (const name of ['plan', 'script']) for (let i = 0; i < ((p[name] || {}).n || 0); i++) await db.doc(`projects/${id}/parts/${name}-${i}`).delete();
+      for (const name of ['plan', 'script', 'media']) for (let i = 0; i < ((p[name] || {}).n || 0); i++) await db.doc(`projects/${id}/parts/${name}-${i}`).delete();
       await db.doc('projects/' + id).delete();
     } else if (mode === 'local') {
       lsDel('klaps.p.' + id);

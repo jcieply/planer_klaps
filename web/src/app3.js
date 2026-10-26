@@ -28,11 +28,17 @@ function setPath(bind, id, el) {
     const sc = sceneById(id); if (!sc) return;
     if (el.dataset.num) sc[key] = val === '' ? null : Math.max(0, +val);
     else sc[key] = val;
-    if (key === 'site') { const k = sc.site || sc.place; if (k && !S.sites[k]) S.sites[k] = { address: '', notes: '' }; }
+    if (key === 'site') { const k = sc.site || sc.place; if (k && !S.sites[k]) S.sites[k] = Core.siteEntry(); }
     return;
   }
   if (scope === 'sheet') { ensureSheetS(id)[key] = val; return; }
-  if (scope === 'row') { const [d, r] = id.split('|'); const row = (ensureSheetS(d).rows || []).find((x) => x.id === r); if (row) row[key] = val; return; }
+  if (scope === 'row') {
+    const [d, r] = id.split('|'); const row = Core.activeRows(S, d).find((x) => x.id === r); if (!row) return;
+    if (key === 'dur' || key === 'prep') { row[key] = val.trim() === '' ? null : Core.etaMin(val); return; }
+    row[key] = val; return;
+  }
+  if (scope === 'map') { const [d, m] = id.split('|'); const mp = (ensureSheetS(d).maps || []).find((x) => x.id === m); if (mp) mp[key] = val; return; }
+  if (scope === 'catx') { const n = Math.max(0, Math.round(+val || 0)); if (n) S.catering.extra[id] = n; else delete S.catering.extra[id]; return; }
   if (scope === 'shot') {
     const x = S.shots.find((y) => y.id === id); if (!x) return;
     if (key === 'sceneId' && val !== x.sceneId) {
@@ -56,7 +62,7 @@ function setPath(bind, id, el) {
   if (scope === 'bud') { const b = S.budget.items.find((x) => x.id === id); if (b) b[key] = val; return; }
   if (scope === 'day') { const d = dayById(id); if (d) d[key] = val; return; }
   if (scope === 'cast') { const c = Core.castMap(S).get(+id); if (c) c[key] = val; return; }
-  if (scope === 'site') { if (!S.sites[id]) S.sites[id] = { address: '', notes: '' }; S.sites[id][key] = val; return; }
+  if (scope === 'site') { if (!S.sites[id]) S.sites[id] = Core.siteEntry(); S.sites[id][key] = val; return; }
   if (scope === 'meta') {
     if (el.dataset.num) { const n = +val; if (n > 0) S.meta[key] = n; }
     else S.meta[key] = val;
@@ -73,7 +79,7 @@ function onInput(e) {
   if (el.id === 'paste-text') { UI.pasteText = el.value; return; }
   const bind = el.dataset && el.dataset.bind;
   if (!bind) return;
-  if (el.type === 'date' || el.type === 'time' || el.tagName === 'SELECT' || el.dataset.time) return; // te obsługuje change
+  if (el.type === 'date' || el.type === 'time' || el.type === 'number' || el.tagName === 'SELECT' || el.dataset.time || el.dataset.dur) return; // te obsługuje change
   setPath(bind, el.dataset.id, el);
   queueSave();
 }
@@ -93,12 +99,13 @@ function onChange(e) {
   try {
     const bind = el.dataset && el.dataset.bind;
     if (bind) {
-      if (el.dataset.time) { const n = normTime(el.value); if (n === null) { toast('Wpisz godzinę w formacie gg:mm, np. 7:30.', 'bad'); el.value = ''; } else el.value = n; }
+      if (el.dataset.time) { const n = normTime(el.value); if (n === null) { toast(T('Wpisz godzinę w formacie gg:mm, np. 7:30.'), 'bad'); el.value = ''; } else el.value = n; }
+      if (el.dataset.dur && el.value.trim() !== '' && Core.etaMin(el.value) == null) { toast(T('Wpisz czas jako h:mm albo w minutach, np. 1:30 lub 45.'), 'bad'); el.value = ''; }
       setPath(bind, el.dataset.id, el);
       if (bind === 'meta.startDate' && S.days.length && el.value) Core.recalcDates(S);
       queueSave();
       // pola tekstowe nie przerysowują widoku (zrobi to zamknięcie szuflady/okna); wybory i daty tak
-      if (el.tagName === 'SELECT' || el.type === 'date' || el.type === 'time' || el.dataset.render) render();
+      if (el.tagName === 'SELECT' || el.type === 'date' || el.type === 'time' || el.dataset.render || el.dataset.dur || (el.dataset.time && bind.startsWith('row.'))) render();
       return;
     }
     const act = el.dataset && el.dataset.actChange;
@@ -113,7 +120,7 @@ function handleChange(act, el) {
   const v = el.value, id = el.dataset.id;
   switch (act) {
     case 'proj-switch':
-      if (v === '__new') { el.value = PID; newProject('Nowy projekt'); }
+      if (v === '__new') { el.value = PID; newProject(T('Nowy projekt')); }
       else if (v !== PID) { doSave().then(() => openProject(v)); }
       return;
     case 'imp-castmode': S.meta.castMode = v; try { runParse(); } catch (err) { /* zostaw */ } commit(); return;
@@ -130,7 +137,7 @@ function handleChange(act, el) {
       const r = moveScenesToDay(ids, v);
       UI.sel = new Set();
       commit();
-      if (r && r !== 'pool') toast(`Dodano ${ids.length} ${pl(ids.length, 'scenę', 'sceny', 'scen')} do planu.`);
+      if (r && r !== 'pool') toast(T('Dodano {n} do planu.', { n: `${ids.length} ${pl(ids.length, 'scenę', 'sceny', 'scen')}` }));
       return;
     }
     case 'pool-to-day': { if (!v) return; moveScenesToDay([el.dataset.sid], v); commit(); return; }
@@ -141,13 +148,26 @@ function handleChange(act, el) {
     case 'sh-scene': UI.shF.scene = v; render(); return;
     case 'row-preset': {
       if (!v) return;
-      const sh = Core.syncSheet(S, id);
-      const row = Core.customRow(v === '__custom' ? '' : v);
-      sh.rows.push(row);
+      const pr = v === '__custom' ? null : ROW_PRESETS[+v];
+      const row = Core.customRow(pr ? T(pr[0]) : '', pr ? pr[1] : null);
+      insertRow(id, row, pr && /koniec/i.test(pr[0]) ? 'end' : 'beforeEnd');
       UI.refocus = `textarea[data-bind="row.desc"][data-id="${id}|${row.id}"]`;
       commit(); return;
     }
+    case 'day-add-kind': { if (!v) return; el.value = ''; const d = Core.addDay(S, v); commit(); scrollToDay(d.id); toast(T('Dodano: {k}. Przesuń dzień strzałkami na właściwe miejsce.', { k: Core.kindLabel(v) })); return; }
+    case 'day-kind': {
+      const n = Core.setDayKind(S, id, v); commit();
+      if (n) toast(T('{n} wróciło do puli „Do zaplanowania”.', { n: `${n} ${pl(n, 'scena', 'sceny', 'scen')}` }));
+      return;
+    }
+    case 'doc-lang': S.meta.docLang = v; commit(); return;
+    case 'cat-cast': S.catering.cast = el.checked; commit(); return;
     case 'contact-from-crew': {
+      if (v.startsWith('cast:')) {
+        const a = Core.castMap(S).get(+v.slice(5)); if (!a) return;
+        Core.ensureSheet(S, id).contacts.push({ role: T('Aktor – {n}', { n: a.name }), name: a.actor || a.name, phone: a.phone || '' });
+        commit(); return;
+      }
       const c = S.crew.find((x) => x.id === v); if (!c) return;
       Core.ensureSheet(S, id).contacts.push({ role: c.role || '', name: Core.crewName(c), phone: c.phone || '' });
       commit(); return;
@@ -160,7 +180,7 @@ function handleChange(act, el) {
       const from = Core.castMap(S).get(+id), to = Core.castMap(S).get(+v);
       if (!from || !to) return;
       Core.mergeCast(S, from.id, to.id); commit();
-      toast(`Połączono „${from.name}” z „${to.name}”.`);
+      toast(T('Połączono „{a}” z „{b}”.', { a: from.name, b: to.name }));
       return;
     }
     case 'site-rename': { Core.renameSite(S, el.dataset.from, v); commit(); return; }
@@ -168,14 +188,14 @@ function handleChange(act, el) {
     case 'wd-toggle': {
       const n = +el.dataset.n, set = new Set(S.meta.weekdays);
       if (el.checked) set.add(n); else set.delete(n);
-      if (!set.size) { set.add(n); toast('Zaznacz przynajmniej jeden dzień roboczy.', 'bad'); }
+      if (!set.size) { set.add(n); toast(T('Zaznacz przynajmniej jeden dzień roboczy.'), 'bad'); }
       S.meta.weekdays = [...set].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
       commit(); return;
     }
     case 'scene-eighths': {
       const sc = sceneById(id); if (!sc) return;
       const n = parseEighths(v);
-      if (n == null || n < 1 || n > 8 * 20) { toast('Wpisz długość np. 5/8, 1 3/8 albo 2.', 'bad'); render(); return; }
+      if (n == null || n < 1 || n > 8 * 20) { toast(T('Wpisz długość np. 5/8, 1 3/8 albo 2.'), 'bad'); render(); return; }
       sc.eighths = n; commit(); return;
     }
     case 'scene-day': {
@@ -192,7 +212,7 @@ function handleChange(act, el) {
       const sc = sceneById(id); const name = Core.normName(v);
       if (!sc || !name) return;
       let c = S.cast.find((x) => Core.normName(x.name) === name);
-      if (!c) { c = { id: S.nextCast++, name, actor: '', notes: '' }; S.cast.push(c); }
+      if (!c) { c = Core.newCast({ id: S.nextCast++, name }); S.cast.push(c); }
       if (!sc.cast.includes(c.id)) { sc.cast.push(c.id); sc.manualCast = (sc.manualCast || []).concat(c.id); }
       UI.refocus = '#dr-newcast'; commit(); return;
     }
@@ -229,8 +249,8 @@ function onClick(e) {
     case 'paste-toggle': UI.paste = !UI.paste; render(); if (UI.paste) { const p = document.getElementById('paste-text'); if (p) p.focus(); } return;
     case 'paste-go': { const p = document.getElementById('paste-text'); if (p) UI.pasteText = p.value; handlePaste(); return; }
     case 'load-sample': {
-      UI.imp = { status: 'ready', file: 'przykładowy scenariusz.fountain', raw: { kind: 'text', text: SAMPLE_SCRIPT }, keep: S.scenes.length > 0 };
-      try { runParse(); } catch (err) { UI.imp = { status: 'error', file: 'przykład', error: err.message }; }
+      UI.imp = { status: 'ready', file: T('przykładowy scenariusz') + '.fountain', raw: { kind: 'text', text: SAMPLE_SCRIPT }, keep: S.scenes.length > 0 };
+      try { runParse(); } catch (err) { UI.imp = { status: 'error', file: T('przykład'), error: err.message }; }
       render(); return;
     }
     case 'imp-apply': applyImportNow(); return;
@@ -261,7 +281,7 @@ function onClick(e) {
     case 'scene-del-no': UI.confirmSceneDel = null; render(); return;
     case 'scene-del-yes': {
       Core.removeScenes(S, [id]);
-      UI.drawer = null; UI.confirmSceneDel = null; UI.sel.delete(id); commit(); toast('Scena usunięta.'); return;
+      UI.drawer = null; UI.confirmSceneDel = null; UI.sel.delete(id); commit(); toast(T('Scena usunięta.')); return;
     }
     case 'scene-cast-del': {
       const sc = sceneById(id); if (!sc) return; const cid = +actEl.dataset.cid;
@@ -283,10 +303,10 @@ function onClick(e) {
       render(); return;
     }
     case 'sel-clear': UI.sel = new Set(); render(); return;
-    case 'bulk-unplan': { const ids = [...UI.sel]; Core.unassign(S, ids); UI.sel = new Set(); commit(); toast('Sceny usunięte z planu.'); return; }
+    case 'bulk-unplan': { const ids = [...UI.sel]; Core.unassign(S, ids); UI.sel = new Set(); commit(); toast(T('Sceny usunięte z planu.')); return; }
     case 'bulk-delete': {
-      if (!UI.confirmBulk) { UI.confirmBulk = true; toast(`Kliknij jeszcze raz, aby usunąć ${UI.sel.size} ${pl(UI.sel.size, 'scenę', 'sceny', 'scen')}.`, 'bad'); setTimeout(() => { UI.confirmBulk = false; }, 4000); return; }
-      const ids = [...UI.sel]; Core.removeScenes(S, ids); UI.sel = new Set(); UI.confirmBulk = false; commit(); toast('Sceny usunięte.'); return;
+      if (!UI.confirmBulk) { UI.confirmBulk = true; toast(T('Kliknij jeszcze raz, aby usunąć {n}.', { n: `${UI.sel.size} ${pl(UI.sel.size, 'scenę', 'sceny', 'scen')}` }), 'bad'); setTimeout(() => { UI.confirmBulk = false; }, 4000); return; }
+      const ids = [...UI.sel]; Core.removeScenes(S, ids); UI.sel = new Set(); UI.confirmBulk = false; commit(); toast(T('Sceny usunięte.')); return;
     }
     case 'f-clear': UI.f = { q: '', ie: '', tod: '', cast: '', site: '', plan: '' }; render(); return;
 
@@ -294,12 +314,12 @@ function onClick(e) {
     case 'autoplan-toggle': UI.autoplan = !UI.autoplan; if (UI.autoplan && !S.days.length) UI.ap.scope = 'unscheduled'; render(); return;
     case 'autoplan-run': case 'autoplan-run-first': {
       const ap = act === 'autoplan-run-first' ? { strategy: 'site', scope: 'unscheduled', separateNight: true } : UI.ap;
-      if (ap.scope === 'all') S.days.slice().forEach((d) => Core.removeDay(S, d.id));
+      if (ap.scope === 'all') S.days.filter((d) => d.kind === 'shoot').forEach((d) => Core.removeDay(S, d.id));
       Core.recalcDates(S);
       const n = Core.autoPlan(S, { strategy: ap.strategy, scope: 'unscheduled', separateNight: ap.separateNight });
       UI.autoplan = false; UI.calView = 'days';
       commit();
-      toast(n ? `Ułożono ${n} ${pl(n, 'dzień zdjęciowy', 'dni zdjęciowe', 'dni zdjęciowych')}.` : 'Nie było scen do zaplanowania.');
+      toast(n ? T('Ułożono {n}.', { n: `${n} ${pl(n, 'dzień zdjęciowy', 'dni zdjęciowe', 'dni zdjęciowych')}` }) : T('Nie było scen do zaplanowania.'));
       return;
     }
     case 'day-add': { const d = Core.addDay(S, 'shoot'); commit(); scrollToDay(d.id); return; }
@@ -307,7 +327,7 @@ function onClick(e) {
     case 'day-del': {
       const d = dayById(id); if (!d) return;
       const n = d.sceneIds.length; Core.removeDay(S, id); commit();
-      toast(n ? `Dzień usunięty. ${n} ${pl(n, 'scena wróciła', 'sceny wróciły', 'scen wróciło')} do puli.` : 'Dzień usunięty.');
+      toast(n ? T('Dzień usunięty. {n} do puli.', { n: `${n} ${pl(n, 'scena wróciła', 'sceny wróciły', 'scen wróciło')}` }) : T('Dzień usunięty.'));
       return;
     }
     case 'day-up': Core.moveDay(S, id, -1); Core.recalcDates(S); commit(); return;
@@ -323,41 +343,78 @@ function onClick(e) {
     case 'cast-add': {
       const inp = document.getElementById('new-cast'); const name = inp ? Core.normName(inp.value) : '';
       if (!name) { if (inp) inp.focus(); return; }
-      if (!S.cast.some((c) => Core.normName(c.name) === name)) S.cast.push({ id: S.nextCast++, name, actor: '', notes: '' });
+      if (!S.cast.some((c) => Core.normName(c.name) === name)) S.cast.push(Core.newCast({ id: S.nextCast++, name }));
       UI.refocus = '#new-cast'; commit(); return;
     }
     case 'cast-del': {
       const c = Core.castMap(S).get(+id); if (!c) return;
-      if (UI.confirmCast !== c.id) { UI.confirmCast = c.id; toast(`Kliknij jeszcze raz, aby usunąć „${c.name}” ze wszystkich scen.`, 'bad'); setTimeout(() => { UI.confirmCast = null; }, 4000); return; }
+      if (UI.confirmCast !== c.id) { UI.confirmCast = c.id; toast(T('Kliknij jeszcze raz, aby usunąć „{n}” ze wszystkich scen.', { n: c.name }), 'bad'); setTimeout(() => { UI.confirmCast = null; }, 4000); return; }
       UI.confirmCast = null; Core.removeCast(S, c.id); commit(); return;
     }
 
-    case 'export-pdf': doExport('pdf', Reports.SECTIONS.map((x) => x[0]).filter((k) => UI.exp[k]), 'kalendarzowka'); return;
-    case 'export-xlsx': doExport('xlsx', Reports.SECTIONS.map((x) => x[0]).filter((k) => UI.exp[k]), 'kalendarzowka'); return;
+    case 'export-pdf': doExport('pdf', Reports.SECTIONS.map((x) => x[0]).filter((k) => UI.exp[k]), 'produkcja'); return;
+    case 'export-xlsx': doExport('xlsx', Reports.SECTIONS.map((x) => x[0]).filter((k) => UI.exp[k]), 'produkcja'); return;
     case 'export-quick-pdf': doExport('pdf', ['calendar'], 'kalendarzowka'); return;
     case 'export-quick-xlsx': doExport('xlsx', ['calendar'], 'kalendarzowka'); return;
     case 'export-json': exportProjectJson(); return;
     case 'cs-export-pdf': case 'cs-export-xlsx': {
       const d = dayById(UI.csDay); const no = d ? Core.dayNumbers(S).get(d.id) : '';
-      doExport(act.endsWith('pdf') ? 'pdf' : 'xlsx', ['callsheet'], 'plan_pracy_D' + no, { dayId: UI.csDay }); return;
+      doExport(act.endsWith('pdf') ? 'pdf' : 'xlsx', ['callsheet'], ['plan_pracy_D{n}', { n: no }], { dayId: UI.csDay }); return;
     }
     case 'row-up': case 'row-down': {
-      const sh = Core.syncSheet(S, id), i = sh.rows.findIndex((r) => r.id === actEl.dataset.rid), j = i + (act === 'row-down' ? 1 : -1);
-      if (i < 0 || j < 0 || j >= sh.rows.length) return;
-      [sh.rows[i], sh.rows[j]] = [sh.rows[j], sh.rows[i]]; commit(); return;
+      const rows = Core.activeRows(S, id), i = rows.findIndex((r) => r.id === actEl.dataset.rid), j = i + (act === 'row-down' ? 1 : -1);
+      if (i < 0 || j < 0 || j >= rows.length) return;
+      [rows[i], rows[j]] = [rows[j], rows[i]]; commit(); return;
     }
-    case 'row-del': { const sh = Core.syncSheet(S, id); sh.rows = sh.rows.filter((r) => r.id !== actEl.dataset.rid); commit(); return; }
-    case 'row-sort': {
-      const sh = Core.syncSheet(S, id); let last = -1;
-      const keyed = sh.rows.map((r, i) => { const t = Core.timeToMin(r.from); const k = t != null ? t : last; last = k; return { r, k, i }; });
-      keyed.sort((a, b) => a.k - b.k || a.i - b.i); sh.rows = keyed.map((x) => x.r); commit(); return;
+    case 'row-del': { const rows = Core.activeRows(S, id); const i = rows.findIndex((r) => r.id === actEl.dataset.rid); if (i >= 0) rows.splice(i, 1); commit(); return; }
+    case 'cs-mode': {
+      const sh = Core.setSheetMode(S, id, actEl.dataset.v);
+      UI.csPick = sh.mode === 'shots' && !(sh.srows || []).some((r) => r.kind === 'shot');
+      commit(); return;
     }
+    case 'cs-pick-toggle': UI.csPick = !UI.csPick; render(); return;
+    case 'cs-pick-all': UI.csPickAll = !UI.csPickAll; render(); return;
+    case 'cs-shot-toggle': {
+      const rows = Core.activeRows(S, id), xid = actEl.dataset.xid;
+      const i = rows.findIndex((r) => r.kind === 'shot' && r.shotId === xid);
+      if (i >= 0) rows.splice(i, 1);
+      else { const x = S.shots.find((y) => y.id === xid); if (x) insertRow(id, Core.shotRowOf(x), 'scene'); }
+      commit(); return;
+    }
+    case 'cs-scene-shots': {
+      const rows = Core.activeRows(S, id), sid = actEl.dataset.sid, on = actEl.dataset.on === '1';
+      const xs = S.shots.filter((x) => x.sceneId === sid);
+      if (on) xs.forEach((x) => { if (!rows.some((r) => r.kind === 'shot' && r.shotId === x.id)) insertRow(id, Core.shotRowOf(x), 'scene'); });
+      else { const ids = new Set(xs.map((x) => x.id)); for (let k = rows.length - 1; k >= 0; k--) if (rows[k].kind === 'shot' && ids.has(rows[k].shotId)) rows.splice(k, 1); }
+      commit(); return;
+    }
+    case 'cs-rebuild': {
+      if (UI.confirmRebuild !== id) { UI.confirmRebuild = id; toast(T('Kliknij jeszcze raz, aby ułożyć harmonogram od nowa z ujęć scen tego dnia (zmiany w trybie shotlisty przepadną).'), 'bad'); setTimeout(() => { UI.confirmRebuild = null; }, 4000); return; }
+      UI.confirmRebuild = null; Core.initShotRows(S, id); commit(); return;
+    }
+    case 'map-pick': { const f = document.getElementById('map-in'); if (f) f.click(); return; }
+    case 'map-del': { Core.removeMap(S, id, actEl.dataset.mid); commit(); return; }
+    case 'lang-toggle': setLang(PREFS.lang === 'en' ? 'pl' : 'en'); return;
+    case 'theme-toggle': setTheme(isDark() ? 'light' : 'dark'); return;
+    case 'set-lang': setLang(actEl.dataset.v); return;
+    case 'set-theme': setTheme(actEl.dataset.v); return;
+    case 'crew-view': UI.crewView = actEl.dataset.v; render(); return;
+    case 'crew-days-open': UI.tab = 'crew'; UI.crewView = 'days'; UI.tabFocus = true; render(); window.scrollTo(0, 0); return;
+    case 'crew-cat-open': UI.tab = 'crew'; UI.crewView = 'catering'; UI.tabFocus = true; render(); window.scrollTo(0, 0); return;
+    case 'crew-day': { const c = S.crew.find((x) => x.id === id); if (!c) return; Core.toggleCrewDay(S, c, actEl.dataset.day); commit(); return; }
+    case 'crew-days-all': { const c = S.crew.find((x) => x.id === id); if (!c) return; Core.setCrewAllDays(S, c, actEl.dataset.v); commit(); return; }
+    case 'crew-col': {
+      const d = dayById(actEl.dataset.day); if (!d) return;
+      const allOn = S.crew.every((c) => Core.crewWorks(c, d));
+      S.crew.forEach((c) => Core.toggleCrewDay(S, c, d.id, !allOn)); commit(); return;
+    }
+    case 'cat-export-pdf': case 'cat-export-xlsx': doExport(act.endsWith('pdf') ? 'pdf' : 'xlsx', ['catering'], 'catering'); return;
     case 'row-restore': { Core.syncSheet(S, id, true); commit(); return; }
     case 'cs-loc-reset': { Core.ensureSheet(S, id).locations = null; commit(); return; }
     case 'site-add': {
       const inp = document.getElementById('new-site'); const name = inp ? inp.value.trim().toUpperCase() : '';
       if (!name) { if (inp) inp.focus(); return; }
-      if (!S.sites[name]) S.sites[name] = { address: '', notes: '', manual: true };
+      if (!S.sites[name]) S.sites[name] = Core.siteEntry({ manual: true });
       UI.refocus = '#new-site'; commit(); return;
     }
     case 'site-del': { delete S.sites[id]; commit(); return; }
@@ -379,32 +436,35 @@ function onClick(e) {
     }
     case 'shot-export-pdf': case 'shot-export-xlsx': doExport(act.endsWith('pdf') ? 'pdf' : 'xlsx', ['shotlist'], 'shotlista'); return;
     case 'crew-add': {
-      const x = Core.newCrew({ dept: UI.crewF.dept && UI.crewF.dept !== 'Bez pionu' ? UI.crewF.dept : '' });
-      S.crew.push(x); UI.crewF.q = '';
+      const x = Core.newCrew({ dept: UI.crewF.dept && UI.crewF.dept !== '__none' ? UI.crewF.dept : '' });
+      S.crew.push(x); UI.crewF.q = ''; if (UI.crewView !== 'list') UI.crewView = 'list';
       UI.refocus = `input[data-bind="crew.first"][data-id="${x.id}"]`; commit(); return;
     }
     case 'crew-del': {
       const c = S.crew.find((x) => x.id === id); if (!c) return;
-      if (UI.confirmCrew !== id) { UI.confirmCrew = id; toast(`Kliknij jeszcze raz, aby usunąć: ${Core.crewName(c) || 'osoba bez nazwiska'}.`, 'bad'); setTimeout(() => { UI.confirmCrew = null; }, 4000); return; }
+      if (UI.confirmCrew !== id) { UI.confirmCrew = id; toast(T('Kliknij jeszcze raz, aby usunąć: {n}.', { n: Core.crewName(c) || T('osoba bez nazwiska') }), 'bad'); setTimeout(() => { UI.confirmCrew = null; }, 4000); return; }
       UI.confirmCrew = null; S.crew = S.crew.filter((x) => x.id !== id); UI.crewOpen.delete(id); commit(); return;
     }
+    case 'cast-toggle': { const k = +id; if (UI.castOpen.has(k)) UI.castOpen.delete(k); else UI.castOpen.add(k); render(); return; }
+    case 'site-toggle': { if (UI.siteOpen.has(id)) UI.siteOpen.delete(id); else UI.siteOpen.add(id); render(); return; }
     case 'crew-toggle': { if (UI.crewOpen.has(id)) UI.crewOpen.delete(id); else UI.crewOpen.add(id); render(); return; }
     case 'crew-dept': UI.crewF.dept = actEl.dataset.d || ''; render(); return;
-    case 'crew-export-pdf': case 'crew-export-xlsx': doExport(act.endsWith('pdf') ? 'pdf' : 'xlsx', ['crew'], 'ekipa'); return;
+    case 'site-export-pdf': case 'site-export-xlsx': doExport(act.endsWith('pdf') ? 'pdf' : 'xlsx', ['sites'], 'lokacje'); return;
+    case 'cast-export-pdf': case 'cast-export-xlsx': doExport(act.endsWith('pdf') ? 'pdf' : 'xlsx', ['cast'], 'obsada'); return;
+    case 'crew-export-pdf': case 'crew-export-xlsx': doExport(act.endsWith('pdf') ? 'pdf' : 'xlsx', act.endsWith('pdf') ? ['crew'] : ['crew', 'catering'], 'ekipa'); return;
     case 'contact-add': { Core.ensureSheet(S, id).contacts.push({ role: '', name: '', phone: '' }); commit(); return; }
     case 'contact-del': { Core.ensureSheet(S, id).contacts.splice(+actEl.dataset.i, 1); commit(); return; }
     case 'veh-add': { S.transport.vehicles.push({ id: Core.uid(), name: '', type: Core.VEHICLE_TYPES[0], plate: '', driver: '', phone: '', note: '' }); commit(); return; }
     case 'veh-del': { S.transport.vehicles = S.transport.vehicles.filter((v) => v.id !== id); S.transport.trips.forEach((t) => { if (t.vehicleId === id) t.vehicleId = ''; }); commit(); return; }
     case 'trip-add': {
-      const first = shootDays()[0]; const dayId = UI.trDay || (first && first.id) || '';
-      const d = dayById(dayId);
+      const first = S.days.find((d) => d.kind !== 'off'); const dayId = UI.trDay || (first && first.id) || '';
       S.transport.trips.push({ id: Core.uid(), dayId, vehicleId: (S.transport.vehicles[0] || {}).id || '', time: '', from: '', to: '', who: '', note: '' });
       commit(); return;
     }
     case 'trip-del': { S.transport.trips = S.transport.trips.filter((t) => t.id !== id); commit(); return; }
     case 'tr-export-pdf': case 'tr-export-xlsx': {
       const d = UI.trDay ? dayById(UI.trDay) : null; const no = d ? Core.dayNumbers(S).get(d.id) : null;
-      doExport(act.endsWith('pdf') ? 'pdf' : 'xlsx', ['transport'], no ? 'transport_D' + no : 'transport', { dayId: UI.trDay || null }); return;
+      doExport(act.endsWith('pdf') ? 'pdf' : 'xlsx', ['transport'], no ? ['transport_D{n}', { n: no }] : 'transport', { dayId: UI.trDay || null }); return;
     }
     case 'bud-add': { S.budget.items.push({ id: Core.uid(), cat: actEl.dataset.cat, name: '', est: '', act: '', dayId: '', site: '', note: '' }); commit(); return; }
     case 'bud-del': { S.budget.items = S.budget.items.filter((b) => b.id !== id); commit(); return; }
@@ -414,6 +474,28 @@ function onClick(e) {
   }
 }
 
+/** wstawia wiersz harmonogramu: 'scene' = za ujęciami tej samej sceny, 'beforeEnd' = przed końcowym „Koniec zdjęć”, 'end' = na koniec */
+function insertRow(dayId, row, where) {
+  const rows = Core.activeRows(S, dayId);
+  let at = rows.length;
+  if (where === 'scene' && row.sceneId) {
+    let k = -1; rows.forEach((r, i) => { if (r.sceneId === row.sceneId && (r.kind === 'shot' || r.kind === 'scene')) k = i; });
+    if (k >= 0) { rows.splice(k + 1, 0, row); return; }
+  }
+  if (where !== 'end') { while (at > 0 && rows[at - 1].kind === 'custom' && !(+rows[at - 1].dur > 0)) at--; }
+  rows.splice(at, 0, row);
+}
+async function addMapFiles(dayId, files) {
+  const list = [...(files || [])].filter((f) => /^image\/(png|jpe?g)$/i.test(f.type) || /\.(png|jpe?g)$/i.test(f.name));
+  if (!list.length) { toast(T('Wybierz plik JPG albo PNG.'), 'bad'); return; }
+  UI.busy = T('Przygotowuję mapkę…'); render();
+  let ok = 0;
+  for (const f of list) {
+    try { const img = await loadImageFile(f); Core.addMap(S, dayId, img); ok++; } catch (e) { toast(T('Nie udało się dodać mapki: {e}', { e: e.message }), 'bad'); }
+  }
+  UI.busy = null; commit();
+  if (ok) toast(T('Dodano mapki: {n}. Trafią do PDF planu pracy.', { n: ok }));
+}
 function scrollToDay(id) {
   setTimeout(() => { const el = document.getElementById('day-' + id); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 30);
 }
@@ -422,6 +504,7 @@ function scrollToDay(id) {
 function onKeydown(e) {
   if (e.key === 'Escape') {
     if (UI.settings) { UI.settings = false; commit(); return; }
+    if (UI.csPick) { UI.csPick = false; render(); return; }
     if (UI.drawer) { UI.drawer = null; render(); return; }
     return;
   }
@@ -466,6 +549,8 @@ function onDragStart(e) {
 }
 function onDragOver(e) {
   if (!DND.ids.length) {
+    const iz = closest(e.target, '[data-drop-img]');
+    if (iz) { e.preventDefault(); iz.classList.add('over'); return; }
     const dz = closest(e.target, '[data-drop-file]');
     if (dz) { e.preventDefault(); dz.classList.add('over'); }
     return;
@@ -488,11 +573,19 @@ function onDragOver(e) {
   if (before) zone.insertBefore(DND.line, before); else zone.appendChild(DND.line);
 }
 function onDragLeave(e) {
+  const iz = closest(e.target, '[data-drop-img]');
+  if (iz && !iz.contains(e.relatedTarget)) iz.classList.remove('over');
   const dz = closest(e.target, '[data-drop-file]');
   if (dz && !dz.contains(e.relatedTarget)) dz.classList.remove('over');
   if (DND.zone && !DND.zone.contains(e.relatedTarget)) clearDnd();
 }
 function onDrop(e) {
+  const imgZone = closest(e.target, '[data-drop-img]');
+  if (!DND.ids.length && imgZone) {
+    e.preventDefault(); imgZone.classList.remove('over');
+    addMapFiles(imgZone.dataset.dropImg, e.dataTransfer && e.dataTransfer.files);
+    return;
+  }
   const fileZone = closest(e.target, '[data-drop-file]');
   if (!DND.ids.length) {
     if (fileZone || (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length)) {
@@ -531,6 +624,7 @@ function onFileInput(e) {
   const el = e.target;
   if (el.id === 'file-in' && el.files && el.files[0]) { const f = el.files[0]; el.value = ''; handleFile(f); }
   else if (el.id === 'json-in' && el.files && el.files[0]) { const f = el.files[0]; el.value = ''; importProjectJson(f); }
+  else if (el.id === 'map-in' && el.files && el.files.length) { const fs = [...el.files]; el.value = ''; addMapFiles(el.dataset.id, fs); }
 }
 
 function bindEvents() {

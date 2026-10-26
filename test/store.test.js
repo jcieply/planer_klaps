@@ -9,6 +9,9 @@ store.save(proj, 'p1', { id: 'p1', title: 'Żółć 2', updatedAt: 6 }, '{"plan"
 assert.strictEqual(store.list(proj).length, 1);
 assert.strictEqual(store.list(proj)[0].title, 'Żółć 2');
 assert.strictEqual(store.load(proj, 'p1').plan, '{"plan":2}');
+store.save(proj, 'p2', { id: 'p2', title: 'Mapki', updatedAt: 7 }, '{}', '{}', '{"m1":{"data":"abc"}}');
+assert.strictEqual(store.load(proj, 'p2').media, '{"m1":{"data":"abc"}}', 'mapki zapisane w pliku projektu');
+store.remove(proj, 'p2');
 assert.ok(fs.readdirSync(proj).includes('p1.bak'), 'kopia poprzedniej wersji');
 fs.writeFileSync(path.join(proj, 'x.klaps.json'), '{uszkodzony');
 assert.strictEqual(store.list(proj).length, 1, 'uszkodzony plik pominięty');

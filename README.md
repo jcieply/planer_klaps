@@ -4,6 +4,13 @@ Aplikacja działa w pełni offline. Projekty zapisują się jako zwykłe pliki w
 `Dokumenty/Klaps Planer/Projekty/` (jeden plik `.klaps.json` na projekt, z automatyczną kopią `.bak`).
 Eksporty PDF/XLSX zapisują się przez standardowe okno „Zapisz jako…”.
 
+## Co nowego (wersja 1.1)
+- Dni specjalne w kalendarzówce: przerzut, prelight, budowa dekoracji (poza numeracją dni zdjęciowych).
+- Plan pracy: czas realizacji i przestawki, godziny liczone automatycznie, ostrzeżenia 12 h pracy i 11 h odpoczynku, mapki JPG/PNG w PDF, harmonogram z kalendarzówki albo z shotlisty.
+- Wersja językowa PL/EN (interfejs i dokumenty), motyw jasny/ciemny.
+- Ekipa: e-mail, diety, dni pracy, raport cateringowy. Obsada: pełne dane aktorów jak w ekipie.
+- Lokacje: rzeczywista nazwa, adres, właściciel i kontakt, zasilanie, toaleta, camp, status umowy, uwagi.
+
 ## Jak zdobyć plik .dmg (bez instalowania czegokolwiek na Macu) – GitHub Actions
 1. Załóż darmowe konto na github.com i nowe **prywatne** repozytorium (np. `klaps-planer`).
 2. Wgraj do niego zawartość tego folderu (Add file → Upload files; folder `.github` też musi trafić do repo –

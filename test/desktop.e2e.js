@@ -10,7 +10,7 @@ const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'klaps-out-'));
   const page = await ctx.newPage();
   const errs = []; page.on('pageerror', (e) => errs.push(String(e)));
   await ctx.exposeFunction('__list', () => store.list(dir));
-  await ctx.exposeFunction('__save', (id, m, p, s) => store.save(dir, id, m, p, s));
+  await ctx.exposeFunction('__save', (id, m, p, s, md) => store.save(dir, id, m, p, s, md));
   await ctx.exposeFunction('__load', (id) => store.load(dir, id));
   await ctx.exposeFunction('__remove', (id) => store.remove(dir, id));
   await ctx.exposeFunction('__file', (name, arr) => { fs.writeFileSync(path.join(outDir, name), Buffer.from(arr)); return { canceled: false }; });
@@ -30,6 +30,13 @@ const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'klaps-out-'));
   await page.reload(); await page.waitForSelector('[data-act="tab"]'); await page.waitForTimeout(800);
   assert.ok((await page.textContent('body')).includes('Ostatni pociąg do Zalesia'), 'projekt wczytany z pliku');
   assert.strictEqual(fs.readdirSync(dir).filter((f) => f.endsWith('.klaps.json')).length, 1, 'bez duplikatu po przeładowaniu');
+  // mapka (część media) zapisana w pliku i odczytana po przeładowaniu
+  await page.evaluate(() => { const d = S.days.find((x) => x.kind === 'shoot'); Core.addMap(S, d.id, { data: 'QUJD'.repeat(400), w: 10, h: 10, caption: 'Baza' }); commit(); });
+  await page.waitForTimeout(1500);
+  const f0 = fs.readdirSync(dir).find((f) => f.endsWith('.klaps.json'));
+  assert.ok(JSON.parse(JSON.parse(fs.readFileSync(path.join(dir, f0), 'utf8')).media).constructor === Object, 'media w pliku');
+  await page.reload(); await page.waitForSelector('[data-act="tab"]'); await page.waitForTimeout(800);
+  assert.ok(await page.evaluate(() => Object.keys(S.media).length === 1 && Object.values(S.sheets).some((sh) => (sh.maps || []).length === 1)), 'mapka wraca po ponownym otwarciu');
   // menu: nowy projekt
   await page.evaluate(() => window.__menu('new-project')); await page.waitForTimeout(1200);
   assert.strictEqual(fs.readdirSync(dir).filter((f) => f.endsWith('.klaps.json')).length, 2, 'nowy projekt = nowy plik');
