@@ -75,6 +75,7 @@ function onInput(e) {
   const el = e.target;
   if (el.id === 'f-q') { UI.f.q = el.value; renderKeepFocus('f-q'); return; }
   if (el.id === 'pool-q') { UI.pool.q = el.value; renderKeepFocus('pool-q'); return; }
+  if (el.id && el.id.startsWith('sync-') && el.id !== 'sync-device') { UI.syncForm = UI.syncForm || {}; UI.syncForm[el.id.slice(5)] = el.value; return; }
   if (el.id === 'crew-q') { UI.crewF.q = el.value; renderKeepFocus('crew-q'); return; }
   if (el.id === 'paste-text') { UI.pasteText = el.value; return; }
   const bind = el.dataset && el.dataset.bind;
@@ -108,6 +109,7 @@ function onChange(e) {
       if (el.tagName === 'SELECT' || el.type === 'date' || el.type === 'time' || el.dataset.render || el.dataset.dur || (el.dataset.time && bind.startsWith('row.'))) render();
       return;
     }
+    if (el.id === 'sync-device') { Sync.setDevice(el.value); return; }
     const act = el.dataset && el.dataset.actChange;
     if (act) handleChange(act, el);
   } finally {
@@ -242,6 +244,20 @@ function onClick(e) {
     case 'settings-open': UI.settings = true; UI.confirmDel = false; render(); return;
     case 'settings-close': UI.settings = false; UI.confirmDel = false; commit(); return;
     case 'proj-del': UI.confirmDel = true; render(); return;
+    case 'sync-login': case 'sync-signup': {
+      const g = (k) => { const e = document.getElementById('sync-' + k); return e ? e.value : ''; };
+      UI.syncForm = { url: g('url'), key: g('key'), email: g('email'), pass: g('pass') };
+      UI.syncBusy = true; UI.syncErr = ''; render();
+      doSave().then(() => Sync.login(UI.syncForm.url, UI.syncForm.key, UI.syncForm.email, UI.syncForm.pass, act === 'sync-signup')).then((r) => {
+        UI.syncBusy = false; UI.syncForm = {};
+        if (r === 'confirm') { UI.syncErr = T('Konto założone. Potwierdź adres e-mail (link w wiadomości od Supabase), a potem kliknij „Zaloguj i synchronizuj”.'); render(); return; }
+        toast(T('Synchronizacja włączona. Projekty z tego urządzenia trafiają do Twojej bazy.')); render();
+      }).catch((e) => { UI.syncBusy = false; UI.syncErr = T('Nie udało się połączyć: {e}', { e: e.message }); render(); });
+      return;
+    }
+    case 'sync-now': Sync.syncAll(); return;
+    case 'sync-logout': Sync.logout(); render(); toast(T('Wylogowano. Projekty zostają na tym urządzeniu.')); return;
+    case 'sync-copy-sql': { try { navigator.clipboard.writeText(Sync.SQL).then(() => toast(T('Skrypt SQL skopiowany.')), () => toast(T('Nie udało się skopiować – zaznacz tekst ręcznie.'), 'bad')); } catch (e) { toast(T('Nie udało się skopiować – zaznacz tekst ręcznie.'), 'bad'); } return; }
     case 'proj-del-no': UI.confirmDel = false; render(); return;
     case 'proj-del-yes': deleteProject(); return;
     case 'pick-file': { const f = document.getElementById('file-in'); if (f) f.click(); return; }

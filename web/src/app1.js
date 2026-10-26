@@ -94,6 +94,17 @@ function updateSaveBadge() {
   el.innerHTML = `<i></i>${m[1]}`;
   el.title = UI.save === 'mem' ? T('Ta przeglądarka nie zachowuje danych. Użyj „Zapisz projekt (.json)” w zakładce Eksport.') : '';
 }
+function updateSyncBadge() {
+  const el = document.getElementById('sync-badge');
+  if (!el) return;
+  const st = Sync.status;
+  const hm = st.at ? new Date(st.at).toTimeString().slice(0, 5) : '';
+  const map = { busy: ['is-busy', T('Synchronizuję…')], idle: ['', hm ? T('Zsynchronizowano {t}', { t: hm }) : T('Synchronizacja włączona')], error: ['is-err', T('Błąd synchronizacji')], off: ['is-mem', T('Synchronizacja wyłączona')] };
+  const m = map[st.state] || map.off;
+  el.className = 'save sync ' + m[0];
+  el.innerHTML = `<i></i>${m[1]}`;
+  el.title = st.state === 'error' ? st.error : '';
+}
 function queueSave() {
   if (!S) return;
   UI.save = 'busy'; updateSaveBadge();
@@ -110,6 +121,7 @@ async function doSave() {
     const i = PROJECTS.findIndex((p) => p.id === PID);
     if (i >= 0) PROJECTS[i] = meta; else PROJECTS.unshift(meta);
     UI.save = Store.mode === 'memory' ? 'mem' : 'saved';
+    Sync.touch();
   } catch (e) {
     UI.save = 'err';
     toast(T('Nie udało się zapisać projektu: {e}', { e: e && e.message ? e.message : T('nieznany błąd') }), 'bad');
@@ -365,7 +377,7 @@ async function newProject(title, state) {
 }
 async function deleteProject() {
   const id = PID;
-  try { await Store.remove(id); } catch (e) { toast(T('Nie udało się usunąć projektu: {e}', { e: e.message }), 'bad'); return; }
+  try { await Store.remove(id); Sync.removed(id); } catch (e) { toast(T('Nie udało się usunąć projektu: {e}', { e: e.message }), 'bad'); return; }
   PROJECTS = PROJECTS.filter((p) => p.id !== id);
   UI.settings = false; UI.confirmDel = false;
   if (PROJECTS.length) await openProject(PROJECTS[0].id);

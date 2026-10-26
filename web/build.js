@@ -1,5 +1,5 @@
 const fs = require('fs');
-const order = ['i18n.js','en.js','fonts.js','zip.js','xlsx.js','pdfdoc.js','parser.js','sample.js','core.js','reports.js','store.js','app1.js','app2.js','app2b.js','app3.js','boot.js'];
+const order = ['i18n.js','en.js','fonts.js','zip.js','xlsx.js','pdfdoc.js','parser.js','sample.js','core.js','reports.js','store.js','sync.js','app1.js','app2.js','app2b.js','app3.js','boot.js'];
 let js = order.map((f) => `/* ---- ${f} ---- */\n` + fs.readFileSync('src/' + f, 'utf8')).join('\n');
 js = js.replace(/<\/script/gi, '<\\/script');
 const css = fs.readFileSync('src/style.css', 'utf8');
@@ -20,7 +20,7 @@ console.log('artifact', head.length, 'bytes');
 
 if (process.env.DESKTOP_OUT) {
   const dk = `<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self' data: blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self' data: blob: https:">
 <title>Klaps Planer</title>
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>\n${css}\n</style></head><body><div id="app"></div>

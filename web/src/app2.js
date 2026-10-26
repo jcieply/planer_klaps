@@ -39,6 +39,7 @@ function renderNow() {
   restoreScroll(keep);
   if (UI.tabFocus) { UI.tabFocus = false; const t = $q('.tab[aria-selected="true"]'); if (t && t.scrollIntoView) t.scrollIntoView({ inline: 'center', block: 'nearest' }); }
   updateSaveBadge();
+  updateSyncBadge();
   if (UI.refocus) { const el = $q(UI.refocus); if (el) el.focus(); UI.refocus = null; }
   else restoreFocus(fk);
 }
@@ -50,7 +51,7 @@ function renderTop() {
   return `<header class="topbar"><div class="topbar-in gut">
     <div class="brand">${ICON.clap}Klaps</div>
     <div class="proj"><select id="proj-sel" data-act-change="proj-switch" aria-label="${T('Projekt')}">${opts}<option value="__new">${T('+ Nowy projekt')}</option></select>${S.demo ? `<span class="tag" title="${T('Projekt demonstracyjny z przykładowym scenariuszem')}">${T('Przykład')}</span>` : ''}</div>
-    <span id="save-badge" class="save"><i></i>${T('Zapisano')}</span>
+    <span id="save-badge" class="save"><i></i>${T('Zapisano')}</span>${Sync.available() && Sync.loggedIn() ? `<button id="sync-badge" class="save sync" data-act="sync-now"><i></i></button>` : ''}
     <div class="actions">
       <button class="btn icon" data-act="lang-toggle" title="${T('Zmień język interfejsu')}" aria-label="${T('Zmień język interfejsu')}"><b class="lang-b">${PREFS.lang === 'en' ? 'EN' : 'PL'}</b></button>
       <button class="btn icon" data-act="theme-toggle" title="${dark ? T('Przełącz na jasny motyw') : T('Przełącz na ciemny motyw')}" aria-label="${dark ? T('Przełącz na jasny motyw') : T('Przełącz na ciemny motyw')}">${dark ? ICON.sun : ICON.moon}</button>
@@ -494,6 +495,7 @@ function renderSettings() {
           <div class="field"><span class="lbl">${T('Język interfejsu')}</span>${seg('set-lang', PREFS.lang, [['pl', 'Polski'], ['en', 'English']])}</div>
           <div class="field"><span class="lbl">${T('Motyw')}</span>${seg('set-theme', PREFS.theme, [['auto', T('Systemowy')], ['light', T('Jasny')], ['dark', T('Ciemny')]])}</div>
         </div></div>
+      ${renderSyncSettings()}
       <div class="set-sec"><h3>${T('Projekt')}</h3>
       <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">${f(T('Tytuł filmu'), 'title')}${f(T('Firma produkcyjna'), 'company')}${f(T('Reżyser'), 'director')}${f(T('Producent'), 'producer')}${f(T('Kierownik produkcji'), 'manager')}${f(T('Wersja scenariusza'), 'scriptVersion')}${f(T('Data wersji scenariusza'), 'scriptDate', 'date')}
         <label class="field"><span class="lbl">${T('Język dokumentów PDF i Excel')}</span><select class="inp" data-act-change="doc-lang">${opt('', T('Jak interfejs ({l})', { l: PREFS.lang.toUpperCase() }), m.docLang || '')}${opt('pl', 'Polski (PL)', m.docLang)}${opt('en', 'English (EN)', m.docLang)}</select></label></div></div>
@@ -511,4 +513,36 @@ function renderSettings() {
       <p class="small muted" style="margin:0">${T('Limit stron służy do planu automatycznego i ostrzeżeń o przeładowanym dniu. Godziny dnia liczą się w Planie pracy z czasów realizacji. Limity czasu pracy i odpoczynku włączają ostrzeżenia BHP (domyślnie 12 h pracy i 11 h przerwy).')}</p>
       <div style="border-top:1px solid var(--line-2);padding-top:14px"><div class="row">${UI.confirmDel ? `<span class="small"><b>${T('Usunąć cały projekt „{t}”?', { t: esc(m.title || T('Bez tytułu')) })}</b> ${T('Tego nie da się cofnąć.')}</span><button class="btn danger" data-act="proj-del-yes">${T('Tak, usuń projekt')}</button><button class="btn" data-act="proj-del-no">${T('Anuluj')}</button>` : `<button class="btn danger" data-act="proj-del">${ICON.trash} ${T('Usuń projekt')}</button>`}</div></div>
     </div></div>`;
+}
+
+/* ================= SYNCHRONIZACJA (ustawienia) ================= */
+function renderSyncSettings() {
+  if (!Sync.available()) return '';
+  const c = Sync.cfg, f = UI.syncForm || {}, st = Sync.status;
+  const val = (k, d) => esc(f[k] != null ? f[k] : d || '');
+  const head = `<h3>${T('Synchronizacja')}</h3><p class="small muted">${T('Projekty synchronizują się automatycznie między Twoimi urządzeniami (Mac, iPhone, iPad) przez Twoją bazę Supabase (darmowy plan wystarczy). Zmiany wysyłają się kilka sekund po zapisie, a nowe wersje z innych urządzeń pobierają się co minutę i po powrocie do aplikacji.')}</p>`;
+  if (Sync.loggedIn()) {
+    const hm = st.at ? new Date(st.at).toTimeString().slice(0, 5) : '—';
+    return `<div class="set-sec">${head}
+      <div class="sync-box ${st.state === 'error' ? 'bad' : 'ok'}"><div><b>${T('Zalogowano jako {e}', { e: esc((c.session.user && c.session.user.email) || c.email) })}</b><div class="small muted">${esc(c.url)}</div></div>
+        <div class="small">${st.state === 'error' ? `<span class="bad-t">${T('Błąd')}: ${esc(st.error)}</span>` : st.state === 'busy' ? T('Synchronizuję…') : T('Ostatnia synchronizacja: {t}', { t: hm })}</div></div>
+      <div class="row" style="margin-top:10px;align-items:flex-end"><label class="field" style="max-width:240px"><span class="lbl">${T('Nazwa tego urządzenia')}</span><input class="inp" id="sync-device" value="${esc(c.device)}" placeholder="Mac, iPhone…"></label>
+        <button class="btn primary" data-act="sync-now">${T('Synchronizuj teraz')}</button><button class="btn" data-act="sync-logout">${T('Wyloguj')}</button></div></div>`;
+  }
+  return `<div class="set-sec">${head}
+    <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+      <label class="field"><span class="lbl">${T('Adres projektu Supabase (Project URL)')}</span><input class="inp" id="sync-url" value="${val('url', c.url)}" placeholder="https://xxxx.supabase.co" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <label class="field"><span class="lbl">${T('Klucz publiczny (anon / publishable key)')}</span><input class="inp" id="sync-key" value="${val('key', c.key)}" placeholder="eyJ…" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <label class="field"><span class="lbl">E-mail</span><input class="inp" id="sync-email" type="email" value="${val('email', c.email)}" autocomplete="username" autocapitalize="off"></label>
+      <label class="field"><span class="lbl">${T('Hasło')}</span><input class="inp" id="sync-pass" type="password" value="${val('pass', '')}" autocomplete="current-password"></label></div>
+    ${UI.syncErr ? `<div class="notice bad" style="margin:10px 0 0"><div>${esc(UI.syncErr)}</div></div>` : ''}
+    <div class="row" style="margin-top:10px"><button class="btn primary" data-act="sync-login" ${UI.syncBusy ? 'disabled' : ''}>${UI.syncBusy ? T('Łączę…') : T('Zaloguj i synchronizuj')}</button><button class="btn" data-act="sync-signup" ${UI.syncBusy ? 'disabled' : ''}>${T('Załóż konto')}</button></div>
+    <details class="sync-help"><summary>${T('Jak przygotować bazę (ok. 5 minut, jednorazowo)')}</summary>
+      <ol class="small"><li>${T('Załóż darmowe konto na supabase.com i utwórz nowy projekt (dowolna nazwa, region np. Frankfurt).')}</li>
+      <li>${T('W projekcie otwórz SQL Editor, wklej poniższy skrypt i kliknij Run. Tworzy dwie tabele dostępne tylko dla zalogowanego właściciela.')}</li>
+      <li>${T('W Authentication → Sign In / Providers → Email wyłącz „Confirm email” (albo potwierdź adres z maila po założeniu konta).')}</li>
+      <li>${T('W Project Settings → API (Data API) skopiuj Project URL oraz klucz anon (publishable) i wklej je powyżej.')}</li>
+      <li>${T('Kliknij „Załóż konto”. Na kolejnych urządzeniach wpisz te same dane i kliknij „Zaloguj i synchronizuj”.')}</li></ol>
+      <div class="row" style="margin:6px 0"><button class="btn sm" data-act="sync-copy-sql">${ICON.file} ${T('Kopiuj skrypt SQL')}</button></div>
+      <pre class="sql">${esc(Sync.SQL)}</pre></details></div>`;
 }

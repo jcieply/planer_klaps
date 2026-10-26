@@ -19,17 +19,19 @@ async function boot() {
     PROJECTS = [];
     try { await Store.init(); } catch (e2) { /* pamięć */ }
   }
+  Sync.onChange(() => { updateSyncBadge(); if (UI.settings) render(); });
   let active = null;
   try { active = localStorage.getItem('klaps.active'); } catch (e) { active = null; }
   const target = PROJECTS.find((p) => p.id === active) || PROJECTS[0];
   if (target) {
-    try { await openProject(target.id); return; } catch (e) { /* utwórz nowy */ }
+    try { await openProject(target.id); Sync.start(); return; } catch (e) { /* utwórz nowy */ }
   }
   // pierwsze uruchomienie: projekt z przykładowym scenariuszem
   const demo = demoState();
   await newProject(demo.meta.title, demo);
   UI.tab = 'schedule';
   render();
+  Sync.start();
   if (Store.mode === 'memory') toast(T('Ta przeglądarka nie zachowuje danych. Zapisuj projekt do pliku w zakładce Eksport.'), 'bad');
 }
 if (typeof window !== 'undefined' && window.matchMedia) {
