@@ -24,11 +24,11 @@
     "@fontsource/courier-prime": "^5.0.0",
     "@fontsource/ibm-plex-sans": "^5.0.0",
     "pdfjs-dist": "3.11.174",
-    "@capacitor/cli": "^7.0.0",
-    "@capacitor/core": "^7.0.0",
-    "@capacitor/ios": "^7.0.0",
-    "@capacitor/filesystem": "^7.0.0",
-    "@capacitor/share": "^7.0.0"
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
+    "@capacitor/filesystem": "^8.0.0",
+    "@capacitor/share": "^8.0.0"
   },
   "build": {
     "appId": "pl.klaps.planer",

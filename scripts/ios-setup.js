@@ -8,6 +8,11 @@ if (!fs.existsSync(path.join(root, 'app', 'native.js'))) { console.error('Najpie
 const iosDir = path.join(root, 'ios');
 // niedokończony folder ios/ (np. po przerwanym cap add) – zaczynamy od nowa
 if (fs.existsSync(iosDir) && !fs.existsSync(path.join(iosDir, 'App', 'App.xcodeproj'))) fs.rmSync(iosDir, { recursive: true, force: true });
+// stary szablon (Capacitor 7, bez SceneDelegate) – na iOS 27 aplikacja zatrzymuje się na czarnym ekranie; tworzymy od nowa
+if (fs.existsSync(iosDir) && !fs.existsSync(path.join(iosDir, 'App', 'App', 'SceneDelegate.swift'))) {
+  console.log('Aktualizacja projektu Xcode do nowego szablonu (UIScene) – po otwarciu wybierz ponownie Team w Signing & Capabilities');
+  fs.rmSync(iosDir, { recursive: true, force: true });
+}
 // Swift Package Manager – nie wymaga instalowania CocoaPods
 // Nie używamy `cap add` – w Capacitor 7 zawsze sprawdza CocoaPods (błąd w CLI), nawet z --packagemanager SPM.
 // Rozpakowujemy szablon SPM sam; potem `cap sync` widzi ios/App/CapApp-SPM i działa bez CocoaPods.
