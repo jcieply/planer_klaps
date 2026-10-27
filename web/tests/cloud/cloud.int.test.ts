@@ -114,3 +114,78 @@ describe('chmura: konta, projekty, zaproszenia, role, zmiany na żywo', () => {
     expect(await b.listProjects()).toEqual([]);
   });
 });
+
+describe('chmura: zmiana klucza projektu', () => {
+  type S = { meta: { title: string }; scenes: { id: string; num: string; text: string }[]; days: unknown[] };
+  const A = { email: 'ala@film.pl', pass: 'haslo-ali-1', name: 'Ala Kot', pos: 'Producent' };
+  const B = { email: 'bartek@film.pl', pass: 'haslo-bartka-1', name: 'Bartek Wąs', pos: 'Operator' };
+  const C = { email: 'celina@film.pl', pass: 'haslo-celiny-1', name: 'Celina Ryś', pos: 'Montażysta' };
+  let a: Cloud, b: Cloud, c: Cloud, ea: EngineMod, eb: EngineMod, pid = '', code = '';
+  it('przygotowanie: projekt, dwie osoby z urządzeniami', async () => {
+    ({ cloud: a, eng: ea } = await fresh());
+    await a.signUp(A.email, A.pass, { name: A.name, position: A.pos, avatar: '' });
+    pid = await a.createProject('Klucz', { meta: { title: 'Klucz' }, scenes: [{ id: 's1', num: '1', text: 'pierwsza' }], days: [] });
+    code = await a.createInvite(pid, 'editor', 24, 5);
+    ({ cloud: b, eng: eb } = await fresh());
+    await b.signUp(B.email, B.pass, { name: B.name, position: B.pos, avatar: '' });
+    await b.redeemInvite(code);
+    await a.ensureDevice(); await b.ensureDevice();
+    const plan = await a.keyPlan(pid);
+    expect(plan).toEqual({ people: 2, withoutDevice: [] });
+  });
+  it('właściciel zmienia klucz: dane zostają, stary kod nie działa, druga osoba odbiera klucz ze skrzynki', async () => {
+    const mk = async (cl: Cloud, e: EngineMod, id: string, need: () => void) => { const en = new e.Engine<S>({ transport: cl.makeTransport(pid), codec: await cl.codecFor(pid), clientId: id, onView: () => undefined, onNeedKey: need, retryMs: 200 }); await en.open(); return en; };
+    let needed = 0;
+    const ea1 = await mk(a, ea, 'ka', () => undefined), eb1 = await mk(b, eb, 'kb', () => { needed++; });
+    await wait(400);
+    const r = await a.rotateKey(pid);
+    expect(r.delivered).toBe(2); expect(r.withoutDevice).toEqual([]);
+    expect(await a.keyEpoch(pid)).toBe(1);
+    expect(await srv.sql(`select key_epoch from klaps_projects`)).toBe('1');
+    expect(await srv.sql(`select count(*) from klaps_ops`)).toBe('0');
+    expect(await srv.sql(`select left(payload, 2) from klaps_snapshots`)).toBe('1.');
+    expect(await a.projectTitle(pid)).toBe('Klucz');
+    // A pracuje dalej pod nowym kluczem; B jeszcze go nie ma – nie gubi zmiany, tylko czeka
+    const v = JSON.parse(JSON.stringify(ea1.view)) as S; v.scenes.push({ id: 's2', num: '2', text: 'po zmianie klucza' });
+    ea1.local(v);
+    await until(() => needed > 0);
+    expect(eb1.view.scenes.length).toBe(1);
+    // B stara się wysłać zmianę starym kluczem – serwer odrzuca
+    await expect(b.makeTransport(pid).push('kb', 999, 'stara-zmiana')).rejects.toThrow(/klucz/i);
+    const s = await b.syncKeys(pid);
+    expect(s).toEqual({ epoch: 1, have: true, updated: true });
+    eb1.resync();
+    await until(() => eb1.view.scenes.length === 2);
+    expect(eb1.view.scenes[1].text).toBe('po zmianie klucza');
+    // B edytuje pod nowym kluczem i A to widzi
+    const w = JSON.parse(JSON.stringify(eb1.view)) as S; w.scenes[0].text = 'poprawka B'; eb1.local(w);
+    await until(() => ea1.view.scenes[0].text === 'poprawka B');
+    // serwer nadal widzi tylko szyfrogramy
+    expect(await srv.sql(`select string_agg(payload, '|') from klaps_ops`)).not.toContain('poprawka');
+    ea1.close(); eb1.close();
+  });
+  it('stary kod zaproszenia jest unieważniony, nowy daje klucz z właściwym numerem', async () => {
+    ({ cloud: c } = await fresh());
+    await c.signUp(C.email, C.pass, { name: C.name, position: C.pos, avatar: '' });
+    await expect(c.redeemInvite(code)).rejects.toThrow(/nieprawidłowy/);
+    const code2 = await a.createInvite(pid, 'viewer', 24, 1);
+    await c.redeemInvite(code2);
+    expect(await c.keyEpoch(pid)).toBe(1);
+    expect((await c.listProjects())[0].title).toBe('Klucz');
+    const st = await c.makeTransport(pid).pull(-1);
+    expect(st.snapshot!.payload.startsWith('1.')).toBe(true);
+  });
+  it('osoba bez zarejestrowanego urządzenia jest wymieniona w podglądzie i potrzebuje nowego kodu', async () => {
+    const plan = await a.keyPlan(pid);
+    expect(plan.people).toBe(3); expect(plan.withoutDevice).toEqual([C.name]);
+    const r = await a.rotateKey(pid);
+    expect(r.withoutDevice).toEqual([C.name]);
+    expect(await a.keyEpoch(pid)).toBe(2);
+    expect(await c.syncKeys(pid)).toEqual({ epoch: 2, have: false, updated: false });
+    expect((await c.listProjects())[0].title).not.toBe('Klucz');          // zablokowany do czasu nowego kodu
+    const code3 = await a.createInvite(pid, 'viewer', 24, 5);
+    await c.redeemInvite(code3);
+    expect(await c.keyEpoch(pid)).toBe(2);
+    expect((await c.listProjects())[0].title).toBe('Klucz');
+  });
+});

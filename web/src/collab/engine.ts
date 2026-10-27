@@ -20,7 +20,7 @@ export interface Persisted { base: unknown; seq: number; pending: Batch[]; nextL
 
 export interface EngineOpts<S> {
   transport: Transport; codec: Codec; clientId: string; readOnly?: boolean;
-  onView: (s: S) => void; onStatus?: (s: Status) => void; onError?: (e: unknown) => void;
+  onView: (s: S) => void; onStatus?: (s: Status) => void; onError?: (e: unknown) => void; onNeedKey?: () => void;
   restore?: Persisted; compactEvery?: number; retryMs?: number; undoLimit?: number;
   /** stan do zapisania w pamięci podręcznej zmienił się (potwierdzenie, nowa zmiana) */
   onPersist?: () => void;
@@ -124,7 +124,12 @@ export class Engine<S> {
       if (!op) break;
       this.buf.delete(op.seq);
       let ops: Op[] = [];
-      try { ops = (await this.o.codec.dec<{ ops: Op[] }>(op.payload)).ops; } catch (e) { this.o.onError?.(e); }
+      try { ops = (await this.o.codec.dec<{ ops: Op[] }>(op.payload)).ops; }
+      catch (e) {
+        // brak klucza (właściciel zmienił klucz projektu): nie pomijamy zmiany – czekamy na klucz i dociągniemy ją później
+        if (String((e as Error)?.message || e).includes('klaps:no_key')) { this.buf.set(op.seq, op); this.o.onNeedKey?.(); break; }
+        this.o.onError?.(e);
+      }
       const mine = op.clientId === this.o.clientId && this.pending[0]?.localSeq === op.localSeq;
       if (mine) this.pending.shift();
       const nb = applyOps(this.base, ops);
@@ -178,6 +183,8 @@ export class Engine<S> {
     this.sinceSnap = 0;
     try { await this.o.transport.putSnapshot(this.seq, await this.o.codec.enc(this.base)); } catch (e) { this.o.onError?.(e); }
   }
+  /** po zmianie klucza: dociągnij zmiany, których nie dało się odczytać, i wyślij oczekujące */
+  resync(): void { if (this.closed) return; this.enqueue(async () => { await this.sync(false); }); void this.flush(); }
   /** czekaj aż wszystko zostanie wysłane i potwierdzone (testy, zamykanie okna) */
   async settle(): Promise<void> {
     for (let n = 0; n < 200 && !this.closed && (this.pending.length || this.sending); n++) { await this.flush(); await this.chain; await new Promise((r) => setTimeout(r, 0)); }

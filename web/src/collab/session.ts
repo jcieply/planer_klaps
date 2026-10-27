@@ -70,11 +70,26 @@ function schedulePersist(id: string) {
   persistTimer = setTimeout(() => { persistTimer = null; if (eng) void cloud.cachePut(id, snapshotCache()); }, 1200);
 }
 
+/** właściciel zmienił klucz projektu: odbierz nowy klucz z „skrzynki” tego urządzenia i dociągnij zmiany */
+let keyBusy = false;
+async function onKeys(id: string) {
+  if (keyBusy || !eng) return;
+  keyBusy = true;
+  try {
+    const r = await cloud.syncKeys(id);
+    if (r.updated) { toast(T('Właściciel zmienił klucz projektu. Odebrano nowy klucz.')); eng?.resync(); }
+    else if (!r.have) toast(T('Właściciel zmienił klucz projektu, a to urządzenie nie ma jeszcze nowego. Wpisz nowy kod zaproszenia (Dołącz do projektu).'), 'bad');
+  } catch { /* bez internetu spróbujemy po powrocie połączenia */ } finally { keyBusy = false; }
+}
+
 /** otwiera projekt z chmury i zwraca jego aktualny stan */
 export async function openCloud(id: string): Promise<ProjectState> {
   await closeCloud();
   const me = await cloud.currentUser();
   if (!me) throw new Error(T('Zaloguj się do chmury, aby otworzyć ten projekt.'));
+  await cloud.ensureDevice().catch(() => undefined);
+  const ks = await cloud.syncKeys(id).catch(() => null);   // bez internetu zostaje klucz, który mamy
+  if (ks && !ks.have) throw new Error(T('Właściciel zmienił klucz projektu, a to urządzenie nie ma jeszcze nowego. Wpisz nowy kod zaproszenia (Dołącz do projektu).'));
   const codec = await cloud.codecFor(id);
   const cached = (await cloud.cacheGet<Cached>(id)) || undefined;
   // rola z serwera; bez internetu – ostatnia znana (z pamięci podręcznej); bez niczego nie wiemy, czy wolno edytować
@@ -88,7 +103,8 @@ export async function openCloud(id: string): Promise<ProjectState> {
     transport: cloud.makeTransport(id), codec, clientId: cid, readOnly: role === 'viewer', restore,
     onView: (v) => { lastTitle = (v as ProjectState).meta?.title || lastTitle; if (notifyOn) notifyMentions(useProject.getState().st, v as ProjectState, me.id); flags.remote = true; try { useProject.setState({ st: v as never }); } finally { flags.remote = false; } refreshHistory(); },
     onStatus: (s) => { set({ status: s }); if (s === 'online') void flushLog(id); },
-    onError: (err) => { console.warn('[klaps/chmura]', err); },
+    onError: (err) => { console.warn('[klaps/chmura]', err); if ((err as { code?: string })?.code === 'klaps:stale_key') void onKeys(id); },
+    onNeedKey: () => { void onKeys(id); },
     onPersist: () => { schedulePersist(id); refreshHistory(); },
   });
   eng = e; cid0 = cid;
@@ -163,6 +179,7 @@ async function startPresence(id: string, me: cloud.CloudUser) {
     channel = ch;
     ch.on('presence', { event: 'sync' }, () => { presenceState = ch.presenceState() as never; publishPeers(); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'klaps_members', filter: 'project_id=eq.' + id }, () => { void refreshPeople(id, me); })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'klaps_keyboxes', filter: 'project_id=eq.' + id }, () => { void onKeys(id); })
       .subscribe((st) => { if (st === 'SUBSCRIBED') void ch.track({ tab: useUI.getState().tab, focus: focusOf(useUI.getState()), at: Date.now() }); });
     let tab = useUI.getState().tab, fk = focusKey(focusOf(useUI.getState()));
     unsubs.push(useUI.subscribe((s) => { const f = focusOf(s), k = focusKey(f); if (s.tab !== tab || k !== fk) { tab = s.tab; fk = k; void ch.track({ tab, focus: f, at: Date.now() }); } }));

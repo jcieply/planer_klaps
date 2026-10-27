@@ -1540,3 +1540,18 @@ I18N.add({
 "{n} mają teraz otwartą tę samą pozycję – zmiany łączą się same, ale warto się dogadać.": "{n} have this item open right now – changes merge automatically, but it is worth coordinating.",
 "Teraz otwarte przez: {n}": "Open now by: {n}"
 });
+I18N.add({
+"Właściciel zmienił klucz projektu, a to urządzenie nie ma jeszcze nowego. Wpisz nowy kod zaproszenia (Dołącz do projektu).": "The owner changed the project key and this device does not have the new one yet. Enter the new invitation code (Join a project).",
+"Właściciel zmienił klucz projektu. Odebrano nowy klucz.": "The owner changed the project key. The new key was received.",
+"Właściciel zmienił klucz projektu. Odświeżam klucz…": "The owner changed the project key. Refreshing the key…",
+"Ktoś właśnie zmienił projekt. Spróbuj jeszcze raz.": "Someone just changed the project. Try again.",
+"Zmiana klucza się nie powiodła. Spróbuj jeszcze raz.": "Changing the key failed. Try again.",
+"Klucz szyfrowania": "Encryption key",
+"Zmień klucz, gdy usuniesz osobę z projektu albo kod zaproszenia mógł trafić w niepowołane ręce. Dane zostają, a stary klucz i wszystkie dotychczasowe kody przestają działać.": "Change the key when you remove a person from the project or an invitation code may have leaked. The data stays, while the old key and all existing codes stop working.",
+"Nowy klucz dostaną automatycznie: {n} os. Nowego kodu zaproszenia będą potrzebować: {names} (nie otworzyły jeszcze projektu w tej wersji programu).": "These people get the new key automatically: {n}. These will need a new invitation code: {names} (they have not opened the project in this version of the program yet).",
+"Nowy klucz dostaną automatycznie wszystkie osoby z projektu ({n}).": "All people in the project ({n}) get the new key automatically.",
+"Gotowe. Klucz zmieniony, przekazano go na {n} urządzeń.": "Done. The key was changed and delivered to {n} devices.",
+"Wyślij nowy kod zaproszenia: {names}.": "Send a new invitation code to: {names}.",
+"Tak, zmień klucz": "Yes, change the key", "Zmieniam klucz…": "Changing the key…", "Zmień klucz projektu": "Change the project key",
+"Po usunięciu osoby warto zmienić klucz projektu (zakładka „Projekt”).": "After removing a person it is worth changing the project key (the “Project” tab)."
+});

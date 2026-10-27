@@ -15,6 +15,10 @@ vi.mock('../../src/collab/cloud', async () => {
     members: async () => [{ id: 'me', name: 'Ja', position: 'Reżyser', avatar: '', color: '#fff', role: H.role, addedAt: 0 }],
     renameProject: async (_id: string, t: string) => { H.renamed.push(t); },
     colorFor: () => '#000',
+    ensureDevice: async () => ({ id: 'dev', pub: '', priv: {} }),
+    syncKeys: async () => ({ epoch: 0, have: true, updated: false }),
+    logActivity: async () => undefined,
+    activity: async () => [],
     client: async () => ({ channel: () => chain, removeChannel: () => undefined }),
   };
 });

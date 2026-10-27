@@ -162,6 +162,7 @@ function People({ p, me, onChanged }: { p: CloudProject; me: CloudUser; onChange
         <button type="button" className="lc-ico dk" title={T('Usuń z projektu')} aria-label={T('Usuń z projektu')} data-act="member-remove" onClick={() => { if (confirm(T('Usunąć osobę {n} z projektu?', { n: m.name }))) void act(() => cloud.removeMember(p.id, m.id)); }}>{ic('trash')}</button></span>}
     </li>)}</ul>}
     <p className="lc-hint">{T('Role: Edytor zmienia plan, Podgląd tylko czyta. Właściciel zarządza osobami i kodami.')}</p>
+    {owner && <p className="lc-hint">{T('Po usunięciu osoby warto zmienić klucz projektu (zakładka „Projekt”).')}</p>}
   </div>;
 }
 
@@ -196,6 +197,25 @@ function Invites({ p, lang }: { p: CloudProject; lang: string }) {
   </div>;
 }
 
+/** zmiana klucza szyfrowania projektu (właściciel): po usunięciu osoby albo gdy kod zaproszenia mógł wyciec */
+function KeyBox({ p }: { p: CloudProject }) {
+  const [plan, setPlan] = useState<cloud.KeyPlan | null>(null);
+  const [step, setStep] = useState<'idle' | 'sure' | 'busy' | 'done'>('idle');
+  const [res, setRes] = useState<{ delivered: number; withoutDevice: string[] } | null>(null);
+  const [err, setErr] = useState('');
+  useEffect(() => { void cloud.keyPlan(p.id).then(setPlan).catch(() => undefined); }, [p.id, step]);
+  const go = async () => { setStep('busy'); setErr(''); try { setRes(await cloud.rotateKey(p.id)); setStep('done'); } catch (e) { setErr(msg(e)); setStep('idle'); } };
+  return <div className="lc-keybox" data-keybox>
+    <h4>{T('Klucz szyfrowania')}</h4>
+    <p className="lc-hint">{T('Zmień klucz, gdy usuniesz osobę z projektu albo kod zaproszenia mógł trafić w niepowołane ręce. Dane zostają, a stary klucz i wszystkie dotychczasowe kody przestają działać.')}</p>
+    {plan && <p className="lc-hint">{plan.withoutDevice.length ? T('Nowy klucz dostaną automatycznie: {n} os. Nowego kodu zaproszenia będą potrzebować: {names} (nie otworzyły jeszcze projektu w tej wersji programu).', { n: plan.people - plan.withoutDevice.length, names: plan.withoutDevice.join(', ') }) : T('Nowy klucz dostaną automatycznie wszystkie osoby z projektu ({n}).', { n: plan.people })}</p>}
+    {err && <p className="lc-err" role="alert">{err}</p>}
+    {step === 'done' && res && <p className="lc-ok" role="status" data-key-done>{T('Gotowe. Klucz zmieniony, przekazano go na {n} urządzeń.', { n: res.delivered })}{res.withoutDevice.length ? ' ' + T('Wyślij nowy kod zaproszenia: {names}.', { names: res.withoutDevice.join(', ') }) : ''}</p>}
+    {step === 'sure' ? <div className="lc-row"><button className="lc-btn bad" data-act="key-rotate-yes" onClick={() => void go()}>{T('Tak, zmień klucz')}</button><button className="lc-btn" onClick={() => setStep('idle')}>{T('Anuluj')}</button></div>
+      : <button className="lc-btn" data-act="key-rotate" disabled={step === 'busy'} onClick={() => setStep('sure')}>{step === 'busy' ? T('Zmieniam klucz…') : T('Zmień klucz projektu')}</button>}
+  </div>;
+}
+
 function ProjectTab({ p, onChanged }: { p: CloudProject; onChanged: () => Promise<void> }) {
   const [title, setTitle] = useState(p.title);
   const [err, setErr] = useState('');
@@ -205,6 +225,7 @@ function ProjectTab({ p, onChanged }: { p: CloudProject; onChanged: () => Promis
     {p.role !== 'viewer' && <form className="lc-row" onSubmit={(e) => { e.preventDefault(); void act(() => cloud.renameProject(p.id, title.trim() || p.title)); }}>
       <input className="lc-inp" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} aria-label={T('Tytuł filmu')} /><button className="lc-btn" type="submit" disabled={!title.trim() || title === p.title}>{T('Zmień tytuł')}</button></form>}
     {err && <p className="lc-err" role="alert">{err}</p>}
+    {p.role === 'owner' && <KeyBox p={p} />}
     <div className="lc-danger">
       {p.role === 'owner' ? (sure
         ? <><p>{T('Usunąć projekt dla wszystkich osób? Tego nie można cofnąć.')}</p><div className="lc-row"><button className="lc-btn bad" data-act="project-delete-yes" onClick={() => void act(() => cloud.deleteProject(p.id))}>{T('Tak, usuń projekt')}</button><button className="lc-btn" onClick={() => setSure(false)}>{T('Anuluj')}</button></div></>

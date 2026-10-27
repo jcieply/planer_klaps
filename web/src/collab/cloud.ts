@@ -4,7 +4,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { T } from '../domain/i18n';
 import { desktop } from '../desktop/bridge';
-import { decryptBytes, decryptJson, encryptBytes, encryptJson, formatCode, importKey, makeInvite, newKeyBytes, parseInvite, b64, unb64, unb32, type ProjectKey } from './crypto';
+import { decryptBytes, decryptJson, encryptBytes, encryptJson, formatCode, importKey, makeInvite, newKeyBytes, newDeviceKey, openSealed, parseInvite, sealFor, b64, unb64, unb32, type DeviceKey, type ProjectKey } from './crypto';
+import { applyOps, type Op } from './ops';
 import type { Transport, RemoteOp } from './engine';
 import { idbTable, openIdb } from '../domain/idb';
 
@@ -50,11 +51,12 @@ const MSG: Record<string, string> = {
   'klaps:not_signed_in': 'Zaloguj się, aby korzystać z chmury.', 'klaps:forbidden': 'Nie masz do tego uprawnień.', 'klaps:not_member': 'Nie należysz do tego projektu.',
   'klaps:invalid_invite': 'Kod zaproszenia jest nieprawidłowy, wygasł albo został wykorzystany.', 'klaps:bad_role': 'Niepoprawna rola.', 'klaps:owner_cannot_leave': 'Właściciel nie może opuścić projektu – przekaż go komuś innemu albo usuń projekt.',
   'klaps:avatar_too_large': 'Zdjęcie jest za duże.', 'Invalid login credentials': 'Zły e-mail lub hasło.', 'User already registered': 'Konto z tym adresem już istnieje – zaloguj się.',
+  'klaps:stale_key': 'Właściciel zmienił klucz projektu. Odświeżam klucz…', 'klaps:head_moved': 'Ktoś właśnie zmienił projekt. Spróbuj jeszcze raz.', 'klaps:bad_epoch': 'Zmiana klucza się nie powiodła. Spróbuj jeszcze raz.',
   'Email not confirmed': 'Potwierdź adres e-mail (link w wiadomości) i zaloguj się ponownie.',
 };
 export function explain(e: unknown): Error {
   const m = String((e as { message?: string })?.message || e || '');
-  for (const k of Object.keys(MSG)) if (m.includes(k)) return new Error(T(MSG[k]));
+  for (const k of Object.keys(MSG)) if (m.includes(k)) return Object.assign(new Error(T(MSG[k])), { code: k });
   if (/Failed to fetch|NetworkError|fetch failed|Load failed/i.test(m)) return new Error(T('Brak połączenia z chmurą. Sprawdź internet i spróbuj ponownie.'));
   if (/Password should be at least/i.test(m)) return new Error(T('Hasło jest za krótkie (minimum 8 znaków).'));
   if (/rate limit/i.test(m)) return new Error(T('Za dużo prób – odczekaj chwilę.'));
@@ -123,18 +125,61 @@ export async function avatarFromFile(file: File): Promise<string> {
   return c.toDataURL('image/jpeg', 0.82);
 }
 
-/* ---------- klucze projektów (tylko na tym komputerze) ---------- */
+/* ---------- klucze projektów (tylko na tym komputerze) ----------
+ * Pęk kluczy projektu: { cur: numer obowiązującego klucza, keys: { numer: klucz } }. Stary zapis (sam klucz) to klucz numer 0.
+ * Każdy szyfrogram wysyłany na serwer ma jawny numer klucza z przodu („3.<dane>”; klucz 0 bez przedrostka), więc serwer
+ * odrzuca zmiany zaszyfrowane starym kluczem po jego wymianie, a klient wie, którym kluczem odczytać dane. */
 const keyName = (id: string) => 'pk:' + id;
+interface Ring { cur: number; keys: Record<string, string> }
 const keyCache = new Map<string, ProjectKey>();
-export async function projectKey(id: string): Promise<ProjectKey | null> {
-  const c = keyCache.get(id); if (c) return c;
+async function getRing(id: string): Promise<Ring | null> {
   const raw = await vault.get(keyName(id)); if (!raw) return null;
-  const k = await importKey(unb64(raw)); keyCache.set(id, k); return k;
+  if (raw.startsWith('{')) { try { const r = JSON.parse(raw) as Ring; if (r && r.keys && typeof r.cur === 'number') return r; } catch { /* uszkodzony pęk */ } return null; }
+  return { cur: 0, keys: { '0': raw } };
 }
-async function storeKey(id: string, bytes: Uint8Array): Promise<ProjectKey> { await vault.set(keyName(id), b64(bytes)); const k = await importKey(bytes); keyCache.set(id, k); return k; }
+async function storeKey(id: string, bytes: Uint8Array, epoch = 0): Promise<ProjectKey> {
+  const r = (await getRing(id)) || { cur: 0, keys: {} };
+  r.keys[String(epoch)] = b64(bytes); r.cur = Math.max(r.cur, epoch);
+  await vault.set(keyName(id), JSON.stringify(r));
+  const k = await importKey(bytes); keyCache.set(id + ':' + epoch, k); return k;
+}
+async function keyAt(id: string, epoch: number): Promise<ProjectKey | null> {
+  const c = keyCache.get(id + ':' + epoch); if (c) return c;
+  const r = await getRing(id); const raw = r?.keys[String(epoch)]; if (!raw) return null;
+  const k = await importKey(unb64(raw)); keyCache.set(id + ':' + epoch, k); return k;
+}
+/** numer obowiązującego (u nas) klucza projektu */
+export async function keyEpoch(id: string): Promise<number | null> { const r = await getRing(id); return r ? r.cur : null; }
+export async function projectKey(id: string): Promise<ProjectKey | null> { const e = await keyEpoch(id); return e == null ? null : keyAt(id, e); }
 export async function hasKey(id: string): Promise<boolean> { return !!(await vault.get(keyName(id))); }
-export async function forgetKey(id: string): Promise<void> { keyCache.delete(id); await vault.remove(keyName(id)); }
+export async function forgetKey(id: string): Promise<void> { for (const k of [...keyCache.keys()]) if (k.startsWith(id + ':')) keyCache.delete(k); await vault.remove(keyName(id)); }
 async function needKey(id: string): Promise<ProjectKey> { const k = await projectKey(id); if (!k) throw new Error(T('Brak klucza tego projektu na tym komputerze. Wpisz kod zaproszenia.')); return k; }
+const tagOf = (s: string): number => { const m = /^(\d{1,6})\./.exec(s); return m ? +m[1] : 0; };
+/** szyfruje obowiązującym kluczem i dopisuje jego numer */
+async function seal(id: string, v: unknown): Promise<string> {
+  const e = await keyEpoch(id); const k = e == null ? null : await keyAt(id, e);
+  if (!k || e == null) throw new Error(T('Brak klucza tego projektu na tym komputerze. Wpisz kod zaproszenia.'));
+  const c = await encryptJson(k, v);
+  return e > 0 ? e + '.' + c : c;
+}
+/** odczytuje kluczem o numerze z przedrostka; bez takiego klucza zgłasza „klaps:no_key” (silnik czeka wtedy na nowy klucz) */
+async function unseal<R = unknown>(id: string, s: string): Promise<R> {
+  const e = tagOf(s); const k = await keyAt(id, e);
+  if (!k) throw new Error('klaps:no_key');
+  return decryptJson<R>(k, e > 0 ? s.slice(String(e).length + 1) : s);
+}
+
+/* ---------- urządzenie: para kluczy do odbioru nowego klucza projektu ---------- */
+let devReady: Promise<DeviceKey> | null = null;
+export function ensureDevice(): Promise<DeviceKey> {
+  return (devReady ||= (async () => {
+    let d: DeviceKey | null = null;
+    try { const raw = await vault.get('dk'); if (raw) d = JSON.parse(raw) as DeviceKey; } catch { d = null; }
+    if (!d) { d = await newDeviceKey(); await vault.set('dk', JSON.stringify(d)); }
+    await rpc('klaps_register_device', { p_device: d.id, p_pub: d.pub });
+    return d;
+  })().catch((e) => { devReady = null; throw e; }));
+}
 
 /* ---------- projekty ---------- */
 /** lista projektów; bez internetu – ostatnia znana lista (w magazynie sekretów systemu) */
@@ -160,9 +205,8 @@ async function listProjectsOnline(me: string): Promise<CloudProject[]> {
   const names = new Map((profs || []).map((p) => [p.id, p.name as string]));
   const out: CloudProject[] = [];
   for (const p of prj || []) {
-    const key = await projectKey(p.id);
     let title = ''; let locked = false;
-    if (key) { try { title = (await decryptJson<{ t: string }>(key, p.title_enc)).t; } catch { locked = true; } } else locked = true;
+    if (await hasKey(p.id)) { try { title = (await unseal<{ t: string }>(p.id, p.title_enc)).t; } catch { locked = true; } } else locked = true;
     const ms = (mem || []).filter((m) => m.project_id === p.id);
     out.push({ id: p.id, title: title || T('Projekt zablokowany (wpisz kod zaproszenia)'), role: (ms.find((m) => m.user_id === me)?.role || 'viewer') as Role, owner: p.owner, ownerName: names.get(p.owner) || '', updatedAt: Date.parse(p.updated_at) || 0, members: ms.length, locked });
   }
@@ -176,7 +220,7 @@ export async function createProject(title: string, state: unknown): Promise<stri
   await storeKey(id, kb);
   return id;
 }
-export async function renameProject(id: string, title: string): Promise<void> { await rpc('klaps_set_title', { p_project: id, p_title_enc: await encryptJson(await needKey(id), { t: title }) }); }
+export async function renameProject(id: string, title: string): Promise<void> { await rpc('klaps_set_title', { p_project: id, p_title_enc: await seal(id, { t: title }) }); }
 export async function deleteProject(id: string): Promise<void> { await rpc('klaps_delete_project', { p_project: id }); await forgetKey(id); }
 export async function leaveProject(id: string): Promise<void> { const me = (await (await client()).auth.getSession()).data.session!.user.id; await rpc('klaps_remove_member', { p_project: id, p_user: me }); await forgetKey(id); }
 
@@ -192,15 +236,13 @@ export async function members(id: string): Promise<Member[]> {
 /* ---------- dziennik zmian ---------- */
 export interface ActivityRow { id: number; at: number; by: string; items: string[] }
 export async function logActivity(id: string, entries: Array<{ at: number; items: string[] }>): Promise<void> {
-  const key = await needKey(id);
-  for (const e of entries) await rpc('klaps_log_activity', { p_project: id, p_payload: await encryptJson(key, e) });
+  for (const e of entries) await rpc('klaps_log_activity', { p_project: id, p_payload: await seal(id, e) });
 }
 export async function activity(id: string, limit = 200): Promise<ActivityRow[]> {
-  const key = await needKey(id);
   const rows = await q<any[]>((await client()).from('klaps_activity').select('id,author,at,payload').eq('project_id', id).order('id', { ascending: false }).limit(limit));
   const out: ActivityRow[] = [];
   for (const r of rows || []) {
-    try { const e = await decryptJson<{ at: number; items: string[] }>(key, r.payload); out.push({ id: Number(r.id), at: Number(e.at) || Date.parse(r.at), by: r.author, items: Array.isArray(e.items) ? e.items.map(String) : [] }); }
+    try { const e = await unseal<{ at: number; items: string[] }>(id, r.payload); out.push({ id: Number(r.id), at: Number(e.at) || Date.parse(r.at), by: r.author, items: Array.isArray(e.items) ? e.items.map(String) : [] }); }
     catch { /* wpis z innego klucza lub uszkodzony – pomijamy */ }
   }
   return out;
@@ -211,13 +253,13 @@ export const transferOwner = (id: string, user: string) => rpc('klaps_transfer_o
 
 export async function createInvite(id: string, role: 'editor' | 'viewer', hours: number, maxUses: number): Promise<string> {
   const key = await needKey(id);
-  const raw = await vault.get(keyName(id)); const kb = unb64(raw!);
+  const ring = (await getRing(id))!; const kb = unb64(ring.keys[String(ring.cur)]);
   const { code, secret } = await makeInvite(kb);
   await rpc('klaps_create_invite', { p_project: id, p_role: role, p_secret: secret, p_secret_enc: await encryptBytes(key, new TextEncoder().encode(secret)), p_hours: hours, p_max_uses: maxUses });
   return code;
 }
 export async function invites(id: string): Promise<InviteRow[]> {
-  const key = await needKey(id); const kb = unb64((await vault.get(keyName(id)))!);
+  const key = await needKey(id); const ring = (await getRing(id))!; const kb = unb64(ring.keys[String(ring.cur)]);
   const rows = await q<any[]>((await client()).from('klaps_invites').select('*').eq('project_id', id).order('created_at', { ascending: false }));
   const out: InviteRow[] = [];
   for (const r of rows || []) {
@@ -234,8 +276,64 @@ export async function redeemInvite(code: string): Promise<{ id: string; role: Ro
   if (!inv) throw new Error(T('To nie wygląda na kod zaproszenia. Skopiuj go w całości (zaczyna się od KLAPS-).'));
   const rows = await rpc<{ project_id: string; role: Role }[]>('klaps_redeem_invite', { p_secret: inv.secret });
   const r = Array.isArray(rows) ? rows[0] : (rows as unknown as { project_id: string; role: Role });
-  await storeKey(r.project_id, inv.keyBytes);
+  const ep = await q<any[]>((await client()).from('klaps_projects').select('key_epoch').eq('id', r.project_id).limit(1)).catch(() => null);
+  await storeKey(r.project_id, inv.keyBytes, Number(ep?.[0]?.key_epoch) || 0);
   return { id: r.project_id, role: r.role };
+}
+
+/* ---------- zmiana klucza projektu ---------- */
+export interface KeySync { epoch: number; have: boolean; updated: boolean }
+/** czy właściciel zmienił klucz? Jeśli tak, odbieramy nowy z „skrzynki” przeznaczonej dla tego urządzenia */
+export async function syncKeys(id: string): Promise<KeySync> {
+  const rows = await q<any[]>((await client()).from('klaps_projects').select('key_epoch').eq('id', id).limit(1));
+  const server = Number(rows?.[0]?.key_epoch) || 0;
+  const local = (await keyEpoch(id)) ?? -1;
+  if (local >= server) return { epoch: server, have: local >= 0, updated: false };
+  const dev = await ensureDevice().catch(() => null);
+  if (!dev) return { epoch: server, have: false, updated: false };
+  const boxes = await q<any[]>((await client()).from('klaps_keyboxes').select('box').eq('project_id', id).eq('epoch', server).eq('device_id', dev.id).limit(1));
+  if (!boxes?.[0]) return { epoch: server, have: false, updated: false };
+  await storeKey(id, await openSealed(dev, boxes[0].box), server);
+  return { epoch: server, have: true, updated: true };
+}
+export interface KeyPlan { people: number; withoutDevice: string[] }
+/** podgląd przed zmianą klucza: kto dostanie nowy klucz automatycznie, a kto będzie potrzebował nowego kodu */
+export async function keyPlan(id: string): Promise<KeyPlan> {
+  const ms = await members(id);
+  const devs = ms.length ? await q<any[]>((await client()).from('klaps_devices').select('user_id').in('user_id', ms.map((m) => m.id))) : [];
+  const have = new Set((devs || []).map((d) => d.user_id));
+  return { people: ms.length, withoutDevice: ms.filter((m) => !have.has(m.id)).map((m) => m.name) };
+}
+/** stan projektu na serwerze (migawka + zmiany), policzony tu – nie potrzeba otwartego projektu */
+async function serverState(id: string): Promise<{ seq: number; state: unknown }> {
+  const pulled = await makeTransport(id).pull(-1);
+  if (!pulled.snapshot) throw new Error('klaps:no_snapshot');
+  let state = await unseal(id, pulled.snapshot.payload); let seq = pulled.snapshot.seq;
+  for (const op of pulled.ops) { state = applyOps(state, (await unseal<{ ops: Op[] }>(id, op.payload)).ops); seq = op.seq; }
+  return { seq, state };
+}
+/** właściciel: nowy klucz projektu. Dane zostają, ale stare zaproszenia i stary klucz przestają działać */
+export async function rotateKey(id: string): Promise<{ delivered: number; withoutDevice: string[] }> {
+  const sync = await syncKeys(id);
+  if (!sync.have) throw new Error(T('Brak klucza tego projektu na tym komputerze. Wpisz kod zaproszenia.'));
+  await ensureDevice();
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const plan = await keyPlan(id);
+    const ms = await members(id);
+    const devs = await q<any[]>((await client()).from('klaps_devices').select('user_id,device_id,pub').in('user_id', ms.map((m) => m.id)));
+    const { seq, state } = await serverState(id);
+    const title = await projectTitle(id);
+    const epoch = sync.epoch + 1;
+    const bytes = await newKeyBytes(); const key = await importKey(bytes);
+    const boxes: Array<{ user: string; device: string; box: string }> = [];
+    for (const d of devs || []) boxes.push({ user: d.user_id, device: d.device_id, box: await sealFor(d.pub, bytes) });
+    try {
+      const n = await rpc<number>('klaps_rotate_key', { p_project: id, p_epoch: epoch, p_head: seq, p_title_enc: epoch + '.' + await encryptJson(key, { t: title }), p_snapshot: epoch + '.' + await encryptJson(key, state), p_boxes: boxes });
+      await storeKey(id, bytes, epoch);
+      return { delivered: Number(n) || boxes.length, withoutDevice: plan.withoutDevice };
+    } catch (e) { if ((e as { code?: string }).code !== 'klaps:head_moved') throw e; }
+  }
+  throw new Error(T('Ktoś właśnie zmienił projekt. Spróbuj jeszcze raz.'));
 }
 
 /* ---------- transport silnika (zmiany na żywo przez Realtime) ---------- */
@@ -282,8 +380,9 @@ export function makeTransport(projectId: string): Transport {
   };
 }
 export async function codecFor(projectId: string): Promise<{ enc(v: unknown): Promise<string>; dec<R = unknown>(s: string): Promise<R> }> {
-  const key = await needKey(projectId);
-  return { enc: (v) => encryptJson(key, v), dec: <R,>(s: string) => decryptJson<R>(key, s) };
+  await needKey(projectId);
+  // klucz wybierany przy każdym wywołaniu: po zmianie klucza projektu ten sam kodek od razu używa nowego
+  return { enc: (v) => seal(projectId, v), dec: <R,>(s: string) => unseal<R>(projectId, s) };
 }
 
 export async function myRole(projectId: string): Promise<Role | null> {
@@ -294,15 +393,15 @@ export async function myRole(projectId: string): Promise<Role | null> {
 export async function projectTitle(projectId: string): Promise<string> {
   const r = await q<any[]>((await client()).from('klaps_projects').select('title_enc').eq('id', projectId).limit(1));
   const row = r?.[0]; if (!row) return '';
-  try { return (await decryptJson<{ t: string }>(await needKey(projectId), row.title_enc)).t; } catch { return ''; }
+  try { return (await unseal<{ t: string }>(projectId, row.title_enc)).t; } catch { return ''; }
 }
 /** pamięć podręczna (IndexedDB) zaszyfrowana kluczem projektu – otwarcie bez internetu */
 let dbp: Promise<IDBDatabase> | null = null;
 const tbl = async () => idbTable<{ id: string; v: string; at: number }>(await (dbp ||= openIdb()), 'collab');
 export async function cacheGet<R>(id: string): Promise<R | null> {
-  try { const row = await (await tbl()).get(id); const k = await projectKey(id); return row && k ? await decryptJson<R>(k, row.v) : null; } catch { return null; }
+  try { const row = await (await tbl()).get(id); return row ? await unseal<R>(id, row.v) : null; } catch { return null; }
 }
 export async function cachePut(id: string, v: unknown): Promise<void> {
-  try { const k = await projectKey(id); if (!k) return; await (await tbl()).put({ id, v: await encryptJson(k, v), at: Date.now() }); } catch { /* pamięć podręczna jest dodatkiem */ }
+  try { if (!(await hasKey(id))) return; await (await tbl()).put({ id, v: await seal(id, v), at: Date.now() }); } catch { /* pamięć podręczna jest dodatkiem */ }
 }
 export async function cacheDrop(id: string): Promise<void> { try { await (await tbl()).del(id); } catch { /* brak */ } }

@@ -168,3 +168,7 @@ body { background: var(--bg); user-select: none; -webkit-user-select: none; curs
 .lc-danger { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line-2); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 .lc-danger p { margin: 0; font-size: 13px; }
 .lc-who .lc-pic { border: 1px solid #34363c; }
+
+.lc-keybox { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); -webkit-app-region: no-drag; }
+.lc-keybox h4 { margin: 0 0 6px; font-size: 13px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); }
+.lc-ok { color: var(--ok); margin: 6px 0; }

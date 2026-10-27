@@ -134,6 +134,48 @@ select klaps_test.eq(public.klaps_role(:'pid'), 'owner', 'nowy właściciel');
 select public.klaps_delete_project(:'pid');
 reset role;
 select klaps_test.eq((select count(*) from public.klaps_ops) + (select count(*) from public.klaps_members) + (select count(*) from public.klaps_snapshots) + (select count(*) from public.klaps_blobs) + (select count(*) from public.klaps_invites) + (select count(*) from public.klaps_activity), 0::bigint, 'usunięcie projektu czyści wszystko');
+-- ===== zmiana klucza projektu =====
+reset role; select set_config('request.jwt.claim.sub', :u1, false); set role authenticated;
+select public.klaps_register_device('dev-u1', 'PUB-U1');
+select public.klaps_create_project('T0', 'S0') as p2 \gset
+select public.klaps_create_invite(:'p2', 'editor', 'SECRETSECRETSECRETSECRET5', 'ENC-SEC-5', 24, 5);
+select public.klaps_push_ops(:'p2', 'k1', 1, 'op-1');
+select public.klaps_push_ops(:'p2', 'k1', 2, 'op-2');
+reset role; select set_config('request.jwt.claim.sub', :u2, false); set role authenticated;
+select public.klaps_register_device('dev-u2', 'PUB-U2');
+select public.klaps_register_device('dev-u2b', 'PUB-U2B');
+select public.klaps_redeem_invite('SECRETSECRETSECRETSECRET5');
+select klaps_test.expect_err('select public.klaps_rotate_key(''' || :'p2' || ''', 1, 2, ''1.T'', ''1.S'', ''[]''::jsonb)', 'forbidden');
+select klaps_test.eq((select count(*) from public.klaps_devices), 3::bigint, 'osoby z projektu widzą swoje urządzenia');
+reset role; select set_config('request.jwt.claim.sub', :u4, false); set role authenticated;
+select klaps_test.eq((select count(*) from public.klaps_devices where user_id in (:u1, :u2)), 0::bigint, 'obcy nie widzi urządzeń');
+select klaps_test.eq((select count(*) from public.klaps_devices), 0::bigint, 'ani innych urządzeń (sam nie ma żadnego)');
+reset role; select set_config('request.jwt.claim.sub', :u1, false); set role authenticated;
+select klaps_test.expect_err('select public.klaps_rotate_key(''' || :'p2' || ''', 2, 2, ''2.T'', ''2.S'', ''[]''::jsonb)', 'bad_epoch');
+select klaps_test.expect_err('select public.klaps_rotate_key(''' || :'p2' || ''', 1, 2, ''T'', ''1.S'', ''[]''::jsonb)', 'bad_epoch');
+select klaps_test.expect_err('select public.klaps_rotate_key(''' || :'p2' || ''', 1, 1, ''1.T'', ''1.S'', ''[]''::jsonb)', 'head_moved');
+select klaps_test.eq(public.klaps_rotate_key(:'p2', 1, 2, '1.T', '1.S',
+  jsonb_build_array(jsonb_build_object('user', :u1, 'device', 'dev-u1', 'box', 'BOX-U1'), jsonb_build_object('user', :u2, 'device', 'dev-u2', 'box', 'BOX-U2'),
+                    jsonb_build_object('user', :u2, 'device', 'dev-u2b', 'box', 'BOX-U2B'), jsonb_build_object('user', :u4, 'device', 'dev-u4', 'box', 'BOX-OBCY'))), 3, 'skrzynki tylko dla członków');
+select klaps_test.eq((select key_epoch from public.klaps_projects where id = :'p2'), 1, 'nowy numer klucza');
+select klaps_test.eq((select count(*) from public.klaps_ops where project_id = :'p2'), 0::bigint, 'stare zmiany usunięte');
+select klaps_test.eq((select seq from public.klaps_snapshots where project_id = :'p2'), 2::bigint, 'migawka na numerze głowy');
+select klaps_test.eq((select count(*) from public.klaps_invites where project_id = :'p2' and not revoked), 0::bigint, 'stare zaproszenia unieważnione');
+select klaps_test.expect_err('select public.klaps_push_ops(''' || :'p2' || ''', ''k1'', 3, ''op-3'')', 'stale_key');
+select klaps_test.eq(public.klaps_push_ops(:'p2', 'k1', 3, '1.op-3'), 3::bigint, 'zmiana pod nowym kluczem przechodzi, numeracja ciągła');
+select klaps_test.expect_err('select public.klaps_set_title(''' || :'p2' || ''', ''T-stary'')', 'stale_key');
+select public.klaps_set_title(:'p2', '1.T-nowy');
+select klaps_test.expect_err('select public.klaps_log_activity(''' || :'p2' || ''', ''stary'')', 'stale_key');
+select public.klaps_log_activity(:'p2', '1.nowy');
+select klaps_test.eq((select count(*) from public.klaps_keyboxes), 1::bigint, 'właściciel widzi tylko swoją skrzynkę');
+reset role; select set_config('request.jwt.claim.sub', :u2, false); set role authenticated;
+select klaps_test.eq((select count(*) from public.klaps_keyboxes), 2::bigint, 'druga osoba widzi swoje dwie skrzynki');
+select klaps_test.eq((select box from public.klaps_keyboxes where device_id = 'dev-u2'), 'BOX-U2', 'treść skrzynki');
+select klaps_test.expect_err('insert into public.klaps_keyboxes(project_id, epoch, user_id, device_id, box) values (''' || :'p2' || ''', 9, ''' || :u2 || ''', ''x'', ''y'')', 'permission denied');
+reset role; select set_config('request.jwt.claim.sub', :u1, false); set role authenticated;
+select public.klaps_delete_project(:'p2');
+reset role;
+
 -- anonim nie ma dostępu do niczego poza wersją
 set role anon;
 select klaps_test.eq(public.klaps_version(), 1, 'wersja schematu dostępna');

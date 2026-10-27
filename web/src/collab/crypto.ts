@@ -99,3 +99,33 @@ export function parseInvite(code: string): Invite | null {
   if (bytes.length < 48) return null;
   return { secret: b32(bytes.subarray(0, 16)), keyBytes: bytes.slice(16, 48) };
 }
+
+/* ---------- klucz urządzenia i „skrzynki” na nowy klucz projektu ----------
+ * Każde urządzenie ma parę kluczy ECDH P-256; klucz prywatny nie opuszcza tego komputera. Przy zmianie klucza projektu właściciel
+ * szyfruje nowy klucz publicznym kluczem każdego urządzenia (ECDH z jednorazowym kluczem → HKDF → AES-GCM). */
+const ECDH = { name: 'ECDH', namedCurve: 'P-256' } as const;
+export interface DeviceKey { id: string; pub: string; priv: JsonWebKey }
+export async function newDeviceKey(): Promise<DeviceKey> {
+  const kp = await subtle().generateKey(ECDH, true, ['deriveBits']);
+  const pub = b64(new Uint8Array(await subtle().exportKey('raw', kp.publicKey)));
+  const priv = await subtle().exportKey('jwk', kp.privateKey);
+  return { id: crypto.randomUUID(), pub, priv };
+}
+async function boxKey(priv: CryptoKey, pubRaw: Uint8Array): Promise<ProjectKey> {
+  const pub = await subtle().importKey('raw', pubRaw as BufferSource, ECDH, false, []);
+  const bits = await subtle().deriveBits({ name: 'ECDH', public: pub }, priv, 256);
+  const hk = await subtle().importKey('raw', bits, 'HKDF', false, ['deriveKey']);
+  return subtle().deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info: te.encode('klaps-keybox-v1') }, hk, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+/** zaszyfruj bajty (nowy klucz projektu) dla urządzenia o kluczu publicznym `devicePub` (base64, format raw) */
+export async function sealFor(devicePub: string, data: Uint8Array): Promise<string> {
+  const eph = await subtle().generateKey(ECDH, true, ['deriveBits']);
+  const key = await boxKey(eph.privateKey, unb64(devicePub));
+  const epk = b64(new Uint8Array(await subtle().exportKey('raw', eph.publicKey)));
+  return JSON.stringify({ e: epk, c: await encryptBytes(key, data) });
+}
+export async function openSealed(dev: DeviceKey, box: string): Promise<Uint8Array> {
+  const o = JSON.parse(box) as { e: string; c: string };
+  const priv = await subtle().importKey('jwk', dev.priv, ECDH, false, ['deriveBits']);
+  return decryptBytes(await boxKey(priv, unb64(o.e)), o.c);
+}

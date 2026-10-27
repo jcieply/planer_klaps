@@ -27,6 +27,7 @@ create table if not exists public.klaps_projects (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.klaps_projects add column if not exists key_epoch int not null default 0;   -- numer obowiązującego klucza projektu (rośnie przy zmianie klucza)
 create table if not exists public.klaps_members (
   project_id uuid not null references public.klaps_projects(id) on delete cascade,
   user_id uuid not null references public.klaps_profiles(id) on delete cascade,
@@ -72,6 +73,22 @@ create table if not exists public.klaps_blobs (
   payload text not null,
   primary key (project_id, id)
 );
+create table if not exists public.klaps_devices (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  device_id text not null,
+  pub text not null,                          -- klucz publiczny urządzenia (ECDH P-256), do przekazywania nowego klucza projektu
+  created_at timestamptz not null default now(),
+  primary key (user_id, device_id)
+);
+create table if not exists public.klaps_keyboxes (
+  project_id uuid not null references public.klaps_projects(id) on delete cascade,
+  epoch int not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  device_id text not null,
+  box text not null,                          -- nowy klucz projektu zaszyfrowany kluczem publicznym tego urządzenia
+  created_at timestamptz not null default now(),
+  primary key (project_id, epoch, user_id, device_id)
+);
 create table if not exists public.klaps_activity (
   id bigint generated always as identity primary key,
   project_id uuid not null references public.klaps_projects(id) on delete cascade,
@@ -96,6 +113,17 @@ language sql stable security definer set search_path = public as $$
     select 1 from public.klaps_members a join public.klaps_members b on a.project_id = b.project_id
     where a.user_id = auth.uid() and b.user_id = p_user)
 $$;
+-- numer klucza zapisany jawnie na początku paczki („3.<szyfrogram>”); paczka bez numeru należy do klucza 0
+create or replace function public.klaps_epoch_of(p text) returns int language sql immutable as $$
+  select case when p ~ '^[0-9]{1,6}[.]' then split_part(p, '.', 1)::int else 0 end
+$$;
+create or replace function public.klaps_check_epoch(p_project uuid, p_payload text) returns void
+language plpgsql stable security definer set search_path = public as $$
+declare ke int;
+begin
+  select key_epoch into ke from public.klaps_projects where id = p_project;
+  if public.klaps_epoch_of(p_payload) is distinct from ke then raise exception 'klaps:stale_key'; end if;
+end $$;
 create or replace function public.klaps_version() returns int language sql immutable as $$ select 1 $$;
 
 -- ---------- dostęp do odczytu (RLS) ----------
@@ -107,6 +135,8 @@ alter table public.klaps_ops enable row level security;
 alter table public.klaps_snapshots enable row level security;
 alter table public.klaps_blobs enable row level security;
 alter table public.klaps_activity enable row level security;
+alter table public.klaps_devices enable row level security;
+alter table public.klaps_keyboxes enable row level security;
 
 drop policy if exists klaps_profiles_read on public.klaps_profiles;
 create policy klaps_profiles_read on public.klaps_profiles for select to authenticated using (public.klaps_shares_project(id));
@@ -124,9 +154,13 @@ drop policy if exists klaps_blobs_read on public.klaps_blobs;
 create policy klaps_blobs_read on public.klaps_blobs for select to authenticated using (public.klaps_is_member(project_id));
 drop policy if exists klaps_activity_read on public.klaps_activity;
 create policy klaps_activity_read on public.klaps_activity for select to authenticated using (public.klaps_is_member(project_id));
+drop policy if exists klaps_devices_read on public.klaps_devices;
+create policy klaps_devices_read on public.klaps_devices for select to authenticated using (public.klaps_shares_project(user_id));
+drop policy if exists klaps_keyboxes_read on public.klaps_keyboxes;
+create policy klaps_keyboxes_read on public.klaps_keyboxes for select to authenticated using (user_id = auth.uid());
 
-revoke all on public.klaps_profiles, public.klaps_projects, public.klaps_members, public.klaps_invites, public.klaps_ops, public.klaps_snapshots, public.klaps_blobs, public.klaps_activity from anon, authenticated;
-grant select on public.klaps_profiles, public.klaps_projects, public.klaps_members, public.klaps_invites, public.klaps_ops, public.klaps_snapshots, public.klaps_blobs, public.klaps_activity to authenticated;
+revoke all on public.klaps_profiles, public.klaps_projects, public.klaps_members, public.klaps_invites, public.klaps_ops, public.klaps_snapshots, public.klaps_blobs, public.klaps_activity, public.klaps_devices, public.klaps_keyboxes from anon, authenticated;
+grant select on public.klaps_profiles, public.klaps_projects, public.klaps_members, public.klaps_invites, public.klaps_ops, public.klaps_snapshots, public.klaps_blobs, public.klaps_activity, public.klaps_devices, public.klaps_keyboxes to authenticated;
 
 -- ---------- funkcje (jedyna droga zapisu) ----------
 create or replace function public.klaps_upsert_profile(p_name text, p_position text, p_avatar text, p_color text) returns void
@@ -161,6 +195,7 @@ begin
   -- ponowne wysłanie tej samej paczki (np. po zerwaniu połączenia) zwraca ten sam numer
   select seq into s from public.klaps_ops where project_id = p_project and client_id = p_client and local_seq = p_local;
   if s is not null then return s; end if;
+  perform public.klaps_check_epoch(p_project, p_payload);
   -- blokada wiersza projektu = jedna kolejka na projekt: numery bez luk i w kolejności zatwierdzania
   update public.klaps_projects set head_seq = head_seq + 1, updated_at = now() where id = p_project returning head_seq into s;
   insert into public.klaps_ops(project_id, seq, author, client_id, local_seq, payload) values (p_project, s, auth.uid(), p_client, p_local, p_payload);
@@ -175,6 +210,7 @@ begin
   if r is null then raise exception 'klaps:not_member'; end if;
   if r not in ('owner', 'editor') then raise exception 'klaps:forbidden'; end if;
   select head_seq, snap_seq into h, sn from public.klaps_projects where id = p_project for update;
+  perform public.klaps_check_epoch(p_project, p_payload);
   if p_seq > h or p_seq <= sn then return; end if;       -- nieaktualna migawka: ignorujemy
   insert into public.klaps_snapshots(project_id, seq, payload, created_by) values (p_project, p_seq, p_payload, auth.uid())
   on conflict (project_id) do update set seq = excluded.seq, payload = excluded.payload, created_by = excluded.created_by, created_at = now();
@@ -189,6 +225,7 @@ begin
   r := public.klaps_role(p_project);
   if r is null then raise exception 'klaps:not_member'; end if;
   if r not in ('owner', 'editor') then raise exception 'klaps:forbidden'; end if;
+  perform public.klaps_check_epoch(p_project, p_payload);
   insert into public.klaps_blobs(project_id, id, payload) values (p_project, p_id, p_payload) on conflict do nothing;
 end $$;
 
@@ -200,10 +237,46 @@ begin
   if r is null then raise exception 'klaps:not_member'; end if;
   if r not in ('owner', 'editor') then raise exception 'klaps:forbidden'; end if;
   if length(p_payload) > 20000 then raise exception 'klaps:too_big'; end if;
+  perform public.klaps_check_epoch(p_project, p_payload);
   insert into public.klaps_activity(project_id, author, payload) values (p_project, auth.uid(), p_payload);
   -- dziennik trzyma ostatnie 1000 wpisów projektu
   select id into cutoff from public.klaps_activity where project_id = p_project order by id desc offset 1000 limit 1;
   if cutoff is not null then delete from public.klaps_activity where project_id = p_project and id <= cutoff; end if;
+end $$;
+
+create or replace function public.klaps_register_device(p_device text, p_pub text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'klaps:not_signed_in'; end if;
+  if length(p_device) > 80 or length(p_pub) > 400 then raise exception 'klaps:too_big'; end if;
+  insert into public.klaps_profiles(id) values (auth.uid()) on conflict do nothing;
+  insert into public.klaps_devices(user_id, device_id, pub) values (auth.uid(), p_device, p_pub)
+  on conflict (user_id, device_id) do update set pub = excluded.pub;
+end $$;
+
+-- Zmiana klucza projektu (tylko właściciel): nowa migawka i tytuł pod nowym kluczem, stare zmiany znikają, stare zaproszenia przestają działać,
+-- a nowy klucz trafia do urządzeń osób z projektu w „skrzynkach” (zaszyfrowanych kluczem publicznym każdego urządzenia).
+create or replace function public.klaps_rotate_key(p_project uuid, p_epoch int, p_head bigint, p_title_enc text, p_snapshot text, p_boxes jsonb) returns int
+language plpgsql security definer set search_path = public as $$
+declare cur int; h bigint; b jsonb; n int := 0;
+begin
+  if public.klaps_role(p_project) is distinct from 'owner' then raise exception 'klaps:forbidden'; end if;
+  select key_epoch, head_seq into cur, h from public.klaps_projects where id = p_project for update;
+  if p_epoch <> cur + 1 or public.klaps_epoch_of(p_title_enc) <> p_epoch or public.klaps_epoch_of(p_snapshot) <> p_epoch then raise exception 'klaps:bad_epoch'; end if;
+  if p_head <> h then raise exception 'klaps:head_moved'; end if;
+  update public.klaps_projects set key_epoch = p_epoch, title_enc = p_title_enc, snap_seq = h, updated_at = now() where id = p_project;
+  insert into public.klaps_snapshots(project_id, seq, payload, created_by) values (p_project, h, p_snapshot, auth.uid())
+  on conflict (project_id) do update set seq = excluded.seq, payload = excluded.payload, created_by = excluded.created_by, created_at = now();
+  delete from public.klaps_ops where project_id = p_project;
+  delete from public.klaps_blobs where project_id = p_project;
+  update public.klaps_invites set revoked = true where project_id = p_project;
+  for b in select * from jsonb_array_elements(coalesce(p_boxes, '[]'::jsonb)) loop
+    if exists (select 1 from public.klaps_members m where m.project_id = p_project and m.user_id = (b->>'user')::uuid) then
+      insert into public.klaps_keyboxes(project_id, epoch, user_id, device_id, box) values (p_project, p_epoch, (b->>'user')::uuid, b->>'device', b->>'box') on conflict do nothing;
+      n := n + 1;
+    end if;
+  end loop;
+  return n;
 end $$;
 
 create or replace function public.klaps_set_title(p_project uuid, p_title_enc text) returns void
@@ -213,6 +286,7 @@ begin
   r := public.klaps_role(p_project);
   if r is null then raise exception 'klaps:not_member'; end if;
   if r not in ('owner', 'editor') then raise exception 'klaps:forbidden'; end if;
+  perform public.klaps_check_epoch(p_project, p_title_enc);
   update public.klaps_projects set title_enc = p_title_enc, updated_at = now() where id = p_project;
 end $$;
 
@@ -306,7 +380,7 @@ grant execute on function public.klaps_version() to anon, authenticated;
 -- funkcje pomocnicze używane przez reguły RLS wykonują się z uprawnieniami zalogowanego
 grant execute on function public.klaps_role(uuid), public.klaps_is_member(uuid), public.klaps_shares_project(uuid) to authenticated;
 grant execute on function public.klaps_upsert_profile(text, text, text, text), public.klaps_create_project(text, text), public.klaps_push_ops(uuid, text, bigint, text),
-  public.klaps_put_snapshot(uuid, bigint, text), public.klaps_put_blob(uuid, text, text), public.klaps_log_activity(uuid, text), public.klaps_set_title(uuid, text),
+  public.klaps_put_snapshot(uuid, bigint, text), public.klaps_put_blob(uuid, text, text), public.klaps_log_activity(uuid, text), public.klaps_register_device(text, text), public.klaps_rotate_key(uuid, int, bigint, text, text, jsonb), public.klaps_set_title(uuid, text),
   public.klaps_create_invite(uuid, text, text, text, int, int), public.klaps_revoke_invite(uuid), public.klaps_redeem_invite(text),
   public.klaps_set_role(uuid, uuid, text), public.klaps_remove_member(uuid, uuid), public.klaps_transfer_owner(uuid, uuid),
   public.klaps_delete_project(uuid) to authenticated;
@@ -320,5 +394,9 @@ do $$ begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
      and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'klaps_members') then
     alter publication supabase_realtime add table public.klaps_members;
+  end if;
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'klaps_keyboxes') then
+    alter publication supabase_realtime add table public.klaps_keyboxes;
   end if;
 end $$;
