@@ -9,8 +9,10 @@ import { usePrefs } from '../state/prefs';
 import { ensureEn } from '../domain/enpack';
 import { Launcher } from './Launcher';
 import { installDefaultServices } from './services';
+import { installCloudServices } from './cloudServices';
 
 installDefaultServices();
+installCloudServices();
 const start = async () => {
   if (usePrefs.getState().lang === 'en') await ensureEn();
   createRoot(document.getElementById('app')!).render(<StrictMode><LazyMotion features={domAnimation} strict><Launcher /></LazyMotion></StrictMode>);

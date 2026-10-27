@@ -10,6 +10,11 @@ import { Core } from '../domain/core';
 // logika z wersji 1.x czasem buduje obiekty pomocnicze na danych – bez zamrażania stanu
 setAutoFreeze(false);
 
+/** wspólne flagi sesji: zmiana pochodzi z chmury (nie zapisuj / nie licz jako własną); projekt tylko do odczytu */
+export const flags = { remote: false, ro: false };
+/** praca zespołowa przejmuje cofanie i ponawianie (cofamy tylko własne zmiany) */
+export const undoHooks: { undo?: () => void; redo?: () => void } = {};
+
 export type SaveState = 'saved' | 'busy' | 'err' | 'mem';
 export interface LockedState { id: string; err?: string; busy?: boolean }
 
@@ -48,7 +53,7 @@ export const useProject = create<ProjectStore>()(
       projects: [],
       save: 'saved',
       locked: null,
-      mutate: (recipe) => set((s) => { if (s.st) recipe(s.st as ProjectState); }),
+      mutate: (recipe) => set((s) => { if (s.st && !flags.ro) recipe(s.st as ProjectState); }),
       load: (pid, st) => set((s) => { s.pid = pid; s.st = st as any; s.locked = null; }),
       setProjects: (p) => set((s) => { s.projects = p as any; }),
       setSave: (v) => set((s) => { s.save = v; }),
@@ -68,8 +73,8 @@ Core.commitState(useProject.getState().st);
 useProject.subscribe((s) => { Core.commitState(s.st); });
 
 export const history = () => useProject.temporal.getState();
-export const undo = () => history().undo();
-export const redo = () => history().redo();
+export const undo = () => (undoHooks.undo ? undoHooks.undo() : history().undo());
+export const redo = () => (undoHooks.redo ? undoHooks.redo() : history().redo());
 export const clearHistory = () => { endBurst(); history().clear(); };
 /** aktualny projekt (poza Reactem) */
 export const getSt = () => useProject.getState().st as ProjectState;

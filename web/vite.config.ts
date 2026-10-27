@@ -28,6 +28,6 @@ export default defineConfig(({ mode }) => {
       target: 'es2020', chunkSizeWarningLimit: 2500, assetsInlineLimit: 100000000, cssCodeSplit: desktop, modulePreload: false,
       ...(desktop ? { rollupOptions: { input: { index: resolve(__dirname, 'index.html'), launcher: resolve(__dirname, 'launcher.html') } } } : {}),
     },
-    test: { environment: 'jsdom', include: ['tests/unit/**/*.test.ts', 'tests/unit/**/*.test.tsx'], setupFiles: ['tests/unit/setup.ts'] },
+    test: { environment: 'jsdom', include: process.env.KLAPS_CLOUD_TESTS ? ['tests/cloud/**/*.test.ts'] : ['tests/unit/**/*.test.ts', 'tests/unit/**/*.test.tsx'], setupFiles: ['tests/unit/setup.ts'] },
   };
 });

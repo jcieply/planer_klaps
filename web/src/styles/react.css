@@ -95,3 +95,17 @@
 @media (prefers-reduced-motion: reduce) { .modal { animation: none; } }
 .modal-skel { display: grid; place-items: center; }
 .side-user .side-tags { margin-top: 8px; }
+
+/* praca zespołowa: obecność osób w projekcie */
+.collab { display: inline-flex; align-items: center; gap: 8px; margin-right: 6px; padding-right: 8px; border-right: 1px solid var(--line-2); }
+.collab-av { display: inline-flex; }
+.collab-p { width: 28px; height: 28px; margin-left: -7px; border-radius: 50%; border: 2px solid var(--accent); background: var(--surface); display: grid; place-items: center; overflow: hidden; }
+.collab-p:first-child { margin-left: 0; }
+.collab-p img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.collab-p b { width: 100%; height: 100%; display: grid; place-items: center; font-size: 10.5px; color: #141416; font-weight: 700; letter-spacing: .02em; }
+.collab-more { margin-left: 4px; font-size: 11.5px; color: var(--ink-3); align-self: center; }
+.collab-st { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.collab-st[data-st="offline"] { background: #e7b65f; animation: blink 1s infinite; }
+.collab-st[data-st="connecting"] { background: var(--ink-3); }
+.collab-ro { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; background: var(--surface-3); color: var(--ink-2); }
+.who-av.img { object-fit: cover; padding: 0; }

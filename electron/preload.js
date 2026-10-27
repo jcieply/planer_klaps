@@ -32,6 +32,12 @@ contextBridge.exposeInMainWorld('klapsDesktop', {
     show: () => ipcRenderer.invoke('launcher:show'),
     quit: () => ipcRenderer.invoke('launcher:quit'),
   },
+  secrets: {
+    get: (n) => ipcRenderer.invoke('secrets:get', n),
+    set: (n, v) => ipcRenderer.invoke('secrets:set', n, v),
+    remove: (n) => ipcRenderer.invoke('secrets:remove', n),
+    info: () => ipcRenderer.invoke('secrets:info'),
+  },
   ready: () => ipcRenderer.send('app:ready'),
   session: () => ipcRenderer.invoke('session:get'),
 });

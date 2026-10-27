@@ -45,6 +45,8 @@ export interface KlapsDesktop {
     show(): Promise<void>;
     quit(): Promise<void>;
   };
+  /** sekrety tego komputera (klucze projektów, sesja chmury) – szyfrowane przez system */
+  secrets: { get(n: string): Promise<string | null>; set(n: string, v: string): Promise<boolean>; remove(n: string): Promise<boolean>; info(): Promise<{ secure: boolean }> };
   /** okno główne zgłasza, że narysowało projekt – dopiero wtedy znika okno startowe */
   ready(): void;
   session(): Promise<DesktopSession>;

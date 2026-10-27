@@ -1,11 +1,12 @@
 /* Klaps Planer – proces główny: okno startowe (launcher) → okno programu.
    Kolejność: start → okno startowe → wybór projektu → okno programu rysuje projekt i zgłasza „gotowe” → płynne przejście. */
-const { app, BrowserWindow, Menu, protocol, ipcMain, dialog, shell, screen } = require('electron');
+const { app, BrowserWindow, Menu, protocol, ipcMain, dialog, shell, screen, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const store = require('./store');
 const profile = require('./profile');
 const intents = require('./intent');
+const secretsLib = require('./secrets');
 
 // katalogi można podmienić zmiennymi środowiskowymi (testy nie dotykają prawdziwych danych użytkownika)
 if (process.env.KLAPS_DATA_DIR) app.setPath('userData', process.env.KLAPS_DATA_DIR);
@@ -16,7 +17,9 @@ const appDir = () => path.join(__dirname, '..', 'app');
 const projectsDir = () => process.env.KLAPS_PROJECTS_DIR || path.join(app.getPath('documents'), 'Klaps Planer', 'Projekty');
 const dataDir = () => app.getPath('userData');
 const BG = '#17181B';
-const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data: blob: https: wss:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'";
+// testy automatyczne łączą się ze sztuczną chmurą na tym samym komputerze (http/ws na 127.0.0.1) – tylko z tą zmienną środowiskową
+const LOOP = process.env.KLAPS_E2E_CLOUD ? ' http://127.0.0.1:* ws://127.0.0.1:*' : '';
+const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data: blob: https: wss:" + LOOP + "; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'";
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.map': 'application/json' };
 
 let launcher = null;
@@ -90,7 +93,7 @@ function openMain(intent) {
   // gdyby program nie zgłosił gotowości (błąd ładowania), pokazujemy okno po chwili
   clearTimeout(revealTimer);
   revealTimer = setTimeout(() => { void revealMain(); }, 15000);
-  if (intent.type === 'open') { try { profile.setPrefs(dataDir(), { lastProject: intent.id, lastOpenedAt: Date.now() }); } catch (e) { /* brak profilu */ } }
+  if (intent.type === 'open' && intent.source === 'local') { try { profile.setPrefs(dataDir(), { lastProject: intent.id, lastOpenedAt: Date.now() }); } catch (e) { /* brak profilu */ } }
   return { ok: true };
 }
 
@@ -192,6 +195,11 @@ function ipc() {
   handle('profile:get', () => profile.get(dataDir()));
   handle('profile:set', (_e, p) => profile.set(dataDir(), p));
   handle('profile:prefs', (_e, p) => profile.setPrefs(dataDir(), p));
+  const vault = () => secretsLib.open(dataDir(), { available: () => safeStorage.isEncryptionAvailable(), encrypt: (t) => safeStorage.encryptString(t), decrypt: (b) => safeStorage.decryptString(b) });
+  handle('secrets:get', (_e, n) => vault().get(n));
+  handle('secrets:set', (_e, n, v) => vault().set(n, v));
+  handle('secrets:remove', (_e, n) => vault().remove(n));
+  handle('secrets:info', () => ({ secure: vault().secure }));
   handle('session:get', () => session);
   handle('launcher:launch', (_e, raw) => {
     const intent = intents.validate(raw);

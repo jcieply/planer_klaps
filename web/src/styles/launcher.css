@@ -112,3 +112,58 @@ body { background: var(--bg); user-select: none; -webkit-user-select: none; curs
 .lc.opening .lc-x { visibility: hidden; }
 
 @media (prefers-reduced-motion: reduce) { .lc, .lc-bar i, .lc-spin { animation-duration: .01ms !important; animation-iteration-count: 1 !important; } .lc-proj, .lc-go { transition: none; } }
+
+/* ---------- chmura: konto, okna dialogowe, zarządzanie ---------- */
+.lc-pic { flex: none; border-radius: 50%; object-fit: cover; display: grid; place-items: center; }
+.lc-pic.ph { color: #141416; font-family: var(--f-display); font-weight: 700; letter-spacing: .04em; }
+.lc-hbtns { display: inline-flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.lc-share.warn { color: var(--warn, #c98a1b); }
+.lc-modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(8,8,10,.55); animation: lc-fade .15s ease both; }
+@keyframes lc-fade { from { opacity: 0; } }
+.lc-dlg { width: min(460px, 100%); max-height: 100%; overflow: auto; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0,0,0,.45); padding: 18px 20px 20px; animation: lc-pop .18s var(--ease) both; }
+.lc-dlg.wide { width: min(640px, 100%); }
+@keyframes lc-pop { from { opacity: 0; transform: translateY(8px) scale(.985); } }
+.lc-dlg header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.lc-dlg h3 { margin: 0; font-family: var(--f-display); font-size: 21px; letter-spacing: .03em; text-transform: uppercase; font-weight: 600; }
+.lc-ico.dk { color: var(--ink-3); } .lc-ico.dk:hover { background: var(--surface-3); color: var(--ink); }
+.lc-dform { display: flex; flex-direction: column; gap: 12px; }
+.lc-dform .lc-sub { margin: 0; }
+.lc-row.sp { justify-content: space-between; align-items: center; }
+.lc-btn.ghost { background: none; border-color: transparent; color: var(--ink-3); }
+.lc-btn.ghost:hover { color: var(--ink); background: var(--surface-3); }
+.lc-btn.bad { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
+.lc-btn.sm2 { height: 28px; padding: 0 10px; font-size: 12px; }
+.lc-link { align-self: flex-start; border: 0; background: none; color: var(--ink-3); font-size: 12.5px; text-decoration: underline; cursor: pointer; padding: 0; }
+.lc-ok { margin: 0; padding: 9px 12px; border-radius: 8px; background: var(--ok-soft, rgba(80,180,110,.14)); color: var(--ok); font-size: 13px; }
+.lc-hint { margin: 8px 0 0; font-size: 12px; line-height: 1.45; color: var(--ink-3); }
+.lc-pic-row { display: flex; align-items: center; gap: 14px; }
+.lc-col { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.lc-inp.code { height: auto; padding: 10px 12px; font-family: var(--f-mono); font-size: 12.5px; resize: none; }
+.lc-manage { position: absolute; inset: 0; padding: 36px 40px 18px 38px; display: flex; flex-direction: column; min-height: 0; }
+.lc-manage .lc-head { justify-content: flex-start; gap: 14px; padding-right: 30px; }
+.lc-manage .lc-head h2 { flex: 1; }
+.lc-manage .lc-back { margin: 0; }
+.lc-mgrid { flex: 1; min-height: 0; display: grid; grid-template-columns: 190px 1fr; gap: 18px; }
+.lc-mlist { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.lc-mlist button { width: 100%; text-align: left; padding: 8px 10px; border: 1px solid transparent; border-radius: 9px; background: none; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.lc-mlist button b { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lc-mlist button small { font-size: 11.5px; color: var(--ink-3); }
+.lc-mlist button:hover { background: var(--surface-2); }
+.lc-mlist button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.lc-mdet { min-width: 0; overflow-y: auto; padding-right: 6px; }
+.lc-mtitle { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.lc-mtitle h3 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+.lc-lockbox { padding: 16px; border: 1px dashed var(--line); border-radius: 10px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; color: var(--ink-2); }
+.lc-people, .lc-invs { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.lc-people li, .lc-invs li { display: flex; align-items: center; gap: 12px; padding: 7px 8px; border-radius: 9px; border: 1px solid var(--line-2); }
+.lc-people .lc-pt em { font-style: normal; margin-left: 7px; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; background: var(--accent-soft); color: var(--ink-2); }
+.lc-role { font-size: 12px; padding: 3px 9px; border-radius: 99px; background: var(--surface-3); color: var(--ink-2); }
+.lc-role.owner { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.lc-mact { display: inline-flex; }
+.lc-sel { height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); color: var(--ink); font-size: 13px; }
+.lc-inv-new { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.lc-code { display: flex; gap: 10px; align-items: center; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--accent); }
+.lc-code code { flex: 1; min-width: 0; font-family: var(--f-mono); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+.lc-danger { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line-2); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.lc-danger p { margin: 0; font-size: 13px; }
+.lc-who .lc-pic { border: 1px solid #34363c; }

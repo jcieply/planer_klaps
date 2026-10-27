@@ -16,6 +16,7 @@ import { sitesList } from '../lib/format';
 import { BottomSheet, Btn, Icon, Tip, cx } from '../components/ui';
 import type { IconName } from '../lib/icons';
 import { useStore } from 'zustand';
+import { useCollab } from '../collab/session';
 import type { ProjectMeta } from '../domain/model';
 
 export const NAV: [Tab, string, IconName, string][] = [
@@ -37,6 +38,11 @@ function useCounts() {
 /** status zapisu i synchronizacji */
 export function SaveBadge() {
   const save = useProject((s) => s.save);
+  const cc = useCollab();
+  if (cc.active) {
+    const m: [string, string] = cc.status === 'offline' ? ['is-mem', cc.pending ? T('Offline · {n} zmian czeka', { n: cc.pending }) : T('Offline')] : cc.status === 'readonly' ? ['', T('Tylko podgląd')] : cc.pending ? ['is-busy', T('Wysyłam…')] : ['', T('Zsynchronizowano')];
+    return <span id="save-badge" className={cx('save', m[0])} title={T('Projekt w chmurze – zmiany trafiają do zespołu na żywo')}><i />{m[1]}</span>;
+  }
   const map: Record<string, [string, string]> = { saved: ['', T('Zapisano')], busy: ['is-busy', T('Zapisuję…')], err: ['is-err', T('Błąd zapisu')], mem: ['is-mem', T('Tylko w tej sesji')] };
   const m = map[save] || map.saved;
   return <span id="save-badge" className={cx('save', m[0])} title={save === 'mem' ? T('Ta przeglądarka nie zachowuje danych. Użyj „Zapisz projekt (.json)” w zakładce Eksport.') : ''}><i />{m[1]}</span>;
@@ -74,7 +80,9 @@ function Side() {
   useProject((s) => s.projects); // znacznik E2E po zmianie szyfrowania
   const sidePin = usePrefs((p) => p.sidePin), setPrefs = usePrefs((p) => p.setPrefs);
   const cnt = useCounts();
-  const me = useDesktopProfile();
+  const me0 = useDesktopProfile();
+  const cc = useCollab();
+  const me = cc.active && cc.me ? { name: cc.me.name || cc.me.email, role: cc.me.position, avatar: cc.me.avatar } : me0;
   const rail = tab !== 'home' && !sidePin;
   const enc = Store.isEncrypted(pid);
   const initials = (st.meta.title || T('Bez tytułu')).split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
@@ -89,8 +97,8 @@ function Side() {
   return <aside className={cx('side', rail && 'rail')} aria-label={T('Moduły projektu')}><div className="side-in">
     <div className="side-brand"><Icon n="clap" /><span className="fade">Klaps</span><small className="fade">{T('Planer')}</small></div>
     {desktop() ? <div className="side-proj side-user"><span className="side-pj" aria-hidden="true">{initialsOf(me?.name || '')}</span><div className="fade side-pf">
-      <div className="who" data-id="who"><span className="who-av" aria-hidden="true">{initialsOf(me?.name || '')}</span>
-        <span className="who-t"><small>{T('Zalogowano jako')}</small><b>{me ? me.name : '…'}</b><em>{[me?.role, T('Konto lokalne')].filter(Boolean).join(' · ')}</em></span></div>
+      <div className="who" data-id="who">{(me as { avatar?: string } | null)?.avatar ? <img className="who-av img" src={(me as { avatar?: string }).avatar} alt="" /> : <span className="who-av" aria-hidden="true">{initialsOf(me?.name || '')}</span>}
+        <span className="who-t"><small>{T('Zalogowano jako')}</small><b>{me ? me.name : '…'}</b><em>{[me?.role, cc.active ? T('Konto w chmurze') : T('Konto lokalne')].filter(Boolean).join(' · ')}</em></span></div>
       <div className="side-tags">{st.demo && <span className="tag" title={T('Projekt demonstracyjny z przykładowym scenariuszem')}>{T('Przykład')}</span>}{enc && <button type="button" className="tag tag-enc" data-act="sec-open" title={T('Projekt zaszyfrowany end-to-end')} onClick={() => setUI((s) => { s.settings = true; })}><Icon n="shield" /> E2E</button>}</div></div></div>
     : <div className="side-proj"><span className="side-pj" aria-hidden="true">{initials}</span><div className="fade side-pf"><ProjectSelect id="proj-sel" label />
       <div className="side-tags">{st.demo && <span className="tag" title={T('Projekt demonstracyjny z przykładowym scenariuszem')}>{T('Przykład')}</span>}{enc && <button type="button" className="tag tag-enc" data-act="sec-open" title={T('Projekt zaszyfrowany end-to-end')} onClick={() => setUI((s) => { s.settings = true; })}><Icon n="shield" /> E2E</button>}</div></div></div>}
@@ -98,6 +106,21 @@ function Side() {
     <div className="side-foot"><div className="side-st"><SaveBadge /><SyncBadge /></div>
       <button type="button" className="side-pin" data-act="side-pin" aria-pressed={sidePin} title={sidePin ? T('Zwijaj menu w zakładkach roboczych') : T('Przypnij rozwinięte menu')} aria-label={sidePin ? T('Zwijaj menu w zakładkach roboczych') : T('Przypnij rozwinięte menu')} onClick={() => setPrefs({ sidePin: !sidePin })}><Icon n={sidePin ? 'unpin' : 'pinSide'} /></button></div>
   </div></aside>;
+}
+
+const TAB_NAME = Object.fromEntries(NAV.map(([k, l]) => [k, l])) as Record<string, string>;
+/** osoby, które mają teraz otwarty ten sam projekt (obecność na żywo) */
+function CollabBar() {
+  const cc = useCollab();
+  if (!cc.active) return null;
+  const roleTxt = cc.role === 'viewer' ? T('Podgląd') : cc.role === 'owner' ? T('Właściciel') : T('Edytor');
+  return <div className="collab" data-id="collab" role="group" aria-label={T('Osoby w projekcie')}>
+    {cc.role === 'viewer' && <span className="collab-ro" title={T('Masz rolę „Podgląd” – nie możesz zmieniać projektu.')}>{T('Tylko podgląd')}</span>}
+    <span className="collab-st" data-st={cc.status} title={cc.status === 'offline' ? T('Brak połączenia – zmiany zapisują się lokalnie i wyślą się po powrocie internetu.') : T('Połączono · Twoja rola: {r}', { r: roleTxt })} />
+    <span className="collab-av">{cc.peers.slice(0, 6).map((p) => <Tip key={p.id} label={`${p.name}${p.me ? ' (' + T('Ty') + ')' : ''}${p.position ? ' · ' + p.position : ''}${p.tab && TAB_NAME[p.tab] ? ' — ' + T(TAB_NAME[p.tab]) : ''}`}>
+      <span className="collab-p" data-user={p.id} style={{ borderColor: p.color }}>{p.avatar ? <img src={p.avatar} alt="" /> : <b style={{ background: p.color }}>{initialsOf(p.name)}</b>}</span></Tip>)}
+      {cc.peers.length > 6 && <span className="collab-more">+{cc.peers.length - 6}</span>}</span>
+  </div>;
 }
 
 function Topbar() {
@@ -109,12 +132,14 @@ function Topbar() {
   const dark = isDark(theme);
   const cur = NAV.find((x) => x[0] === tab);
   const enc = Store.isEncrypted(pid);
-  const canUndo = temporal.pastStates.length > 0, canRedo = temporal.futureStates.length > 0;
+  const cc = useCollab();
+  const canUndo = cc.active ? cc.canUndo : temporal.pastStates.length > 0, canRedo = cc.active ? cc.canRedo : temporal.futureStates.length > 0;
   return <header className="topbar"><div className="topbar-in gut">
     <div className="m-brand"><Icon n="clap" /></div>
     <div className="crumb"><span className="crumb-p">{st.meta.title || T('Bez tytułu')}</span><span className="crumb-s">/</span><b>{cur ? T(cur[1]) : ''}</b></div>
     {!desktop() && <div className="proj m-only"><ProjectSelect id="proj-sel-m" /></div>}
     <div className="actions">
+      <CollabBar />
       <div className="undo-g">
         <Tip label={T('Cofnij') + ' (Ctrl+Z)'}><Btn v="ghost" className="icon" act="undo" aria-label={T('Cofnij')} disabled={!canUndo} onClick={() => undo()}><Icon n="undo" /></Btn></Tip>
         <Tip label={T('Ponów') + ' (Ctrl+Shift+Z)'}><Btn v="ghost" className="icon" act="redo" aria-label={T('Ponów')} disabled={!canRedo} onClick={() => redo()}><Icon n="redo" /></Btn></Tip>

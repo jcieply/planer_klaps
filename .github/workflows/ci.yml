@@ -32,3 +32,37 @@ jobs:
           name: zrzuty-ekranu
           path: ${{ runner.temp }}/shots
           if-no-files-found: ignore
+  chmura:
+    name: Chmura (SQL, supabase-js, Electron)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: PostgreSQL
+        run: ls /usr/lib/postgresql/*/bin/initdb >/dev/null 2>&1 || (sudo apt-get update -qq && sudo apt-get install -y -qq postgresql postgresql-contrib)
+      - run: npm install --no-audit --no-fund
+      - run: npm install --no-audit --no-fund
+        working-directory: web
+      - name: Schemat SQL (role, zaproszenia, RLS, numeracja zmian)
+        run: bash supabase/tests/run.sh
+      - name: Stos chmury (supabase-js + Realtime + szyfrowanie na prawdziwym Postgresie)
+        working-directory: web
+        run: npm run test:cloud
+      - name: Aplikacja ze sztuczną chmurą wbudowaną w program
+        run: npm run prepare-app
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54399
+          VITE_SUPABASE_ANON_KEY: test-anon-key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      - name: Dwie osoby w prawdziwej aplikacji (Electron)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb
+          xvfb-run -a --server-args="-screen 0 1600x1000x24" npm run e2e:cloud
+        env:
+          KLAPS_SHOTS: ${{ runner.temp }}/shots-chmura
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zrzuty-chmura
+          path: ${{ runner.temp }}/shots-chmura
+          if-no-files-found: ignore

@@ -7,9 +7,12 @@ import { plN } from '../lib/format';
 import { usePrefs } from '../state/prefs';
 import { desktop, type DesktopProfile } from '../desktop/bridge';
 import { Logo } from './Logo';
-import { allIdentities, allSources, launch, resolveAccount, type Account, type IdentityProvider, type ProjectEntry, type ProjectSource } from './services';
+import { cloudConfigured, currentUser, type CloudUser } from '../collab/cloud';
+import { AccountModal, Avatar, JoinModal, Manage } from './Cloud';
+import { allSources, launch, resolveAccount, type Account, type IdentityProvider, type ProjectEntry, type ProjectSource } from './services';
 
-type View = 'boot' | 'welcome' | 'home' | 'new';
+type View = 'boot' | 'welcome' | 'home' | 'new' | 'manage';
+type Dlg = null | 'account' | 'join';
 const ic = (n: keyof typeof ICONS) => <span className="ic" aria-hidden="true" dangerouslySetInnerHTML={{ __html: ICONS[n] }} />;
 const ROLES = ['Reżyser', 'Producent', 'Kierownik produkcji', 'II reżyser', 'Asystent planu', 'Operator', 'Scenarzysta'];
 const TILES = ['#F2C230', '#6FB5E8', '#8FCB7C', '#E59A86', '#B79AE0', '#E6BB85'];
@@ -34,6 +37,11 @@ export function Launcher() {
   const [account, setAccount] = useState<Account | null>(null);
   const [identity, setIdentity] = useState<IdentityProvider | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
+  const [cloudUser, setCloudUser] = useState<CloudUser | null>(null);
+  const [dlg, setDlg] = useState<Dlg>(null);
+  const [srcId, setSrcId] = useState('local');
+  const [tick, setTick] = useState(0);
+  const [focusProject, setFocusProject] = useState<string | undefined>();
   const [error, setError] = useState('');
   const d = desktop();
 
@@ -42,6 +50,8 @@ export function Launcher() {
     setProfile(p);
     const r = await resolveAccount();
     setAccount(r.account); setIdentity(r.provider);
+    setCloudUser(cloudConfigured() ? await currentUser().catch(() => null) : null);
+    setTick((n) => n + 1);
     return p;
   }, [d]);
   useEffect(() => { void refresh().then((p) => setView(p ? 'home' : 'welcome')).catch(() => setView('welcome')); }, [refresh]);
@@ -64,8 +74,8 @@ export function Launcher() {
       <AnimatePresence mode="wait" initial={false}>
         {view === 'home' && profile ? <m.div key="hi" className="lc-hello" initial={calm ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.35, delay: 0.1 }}>
           <small>{T('Miło Cię widzieć')}</small>
-          <h1>{T('Cześć, {name}', { name: profile.name })}</h1>
-          <Who account={account} identity={identity} profile={profile} onChanged={refresh} />
+          <h1>{T('Cześć, {name}', { name: account?.provider === 'cloud' ? account.name : profile.name })}</h1>
+          <Who account={account} identity={identity} profile={profile} onChanged={refresh} cloudUser={cloudUser} onAccount={() => setDlg('account')} />
         </m.div> : <m.p key="tag" className="lc-tag" initial={calm ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ delay: 0.3 }}>
           {T('Planowanie zdjęć: od scenariusza do planu dnia.')}</m.p>}
       </AnimatePresence>
@@ -77,22 +87,27 @@ export function Launcher() {
       <AnimatePresence mode="wait" initial={false}>
         {opening ? <Opening key="op" label={opening} />
           : view === 'welcome' ? <m.div key="w" className="lc-pane" {...fade(calm)}><Welcome onDone={async () => { await refresh(); setView('home'); }} /></m.div>
-          : view === 'new' ? <m.div key="n" className="lc-pane" {...fade(calm)}><NewProject onBack={() => { setError(''); setView('home'); }} onCreate={(title, template) => void open({ type: 'create', source: 'local', title, template }, title)} error={error} /></m.div>
-          : view === 'home' ? <m.div key="h" className="lc-pane" {...fade(calm)}><Home profile={profile} lang={lang} error={error} onNew={() => { setError(''); setView('new'); }} onOpen={(e) => void open({ type: 'open', source: e.source, id: e.id }, e.title)} /></m.div>
+          : view === 'new' ? <m.div key="n" className="lc-pane" {...fade(calm)}><NewProject cloudUser={cloudUser} initialSource={srcId} onBack={() => { setError(''); setView('home'); }} onCreate={(title, template, source) => void open({ type: 'create', source, title, template }, title)} error={error} /></m.div>
+          : view === 'manage' && cloudUser ? <m.div key="m" className="lc-pane" {...fade(calm)}><Manage me={cloudUser} lang={lang} initial={focusProject} onBack={() => { setView('home'); setTick((n) => n + 1); }} onJoin={() => setDlg('join')} onOpen={(p) => void open({ type: 'open', source: 'cloud', id: p.id }, p.title)} /></m.div>
+          : view === 'home' ? <m.div key="h" className="lc-pane" {...fade(calm)}><Home profile={profile} lang={lang} error={error} reload={tick} srcId={srcId} setSrcId={setSrcId} cloudUser={cloudUser}
+            onAccount={() => setDlg('account')} onJoin={() => setDlg('join')} onManage={(id) => { setFocusProject(id); setView('manage'); }}
+            onNew={() => { setError(''); setView('new'); }} onOpen={(e) => { if (e.locked) setDlg('join'); else void open({ type: 'open', source: e.source, id: e.id }, e.title); }} /></m.div>
           : <m.div key="b" className="lc-pane" {...fade(calm)} />}
       </AnimatePresence>
     </main>
+    {dlg === 'account' && <AccountModal user={cloudUser} onClose={() => setDlg(null)} onChanged={() => void refresh()} />}
+    {dlg === 'join' && <JoinModal onClose={() => setDlg(null)} onJoined={(id) => { setSrcId('cloud'); setFocusProject(id); setTick((n) => n + 1); }} />}
   </div>;
 }
 const fade = (calm: boolean | null) => ({ initial: calm ? false as const : { opacity: 0, x: 14 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -10 }, transition: { duration: 0.22, ease: [0.2, 0.7, 0.2, 1] as [number, number, number, number] } });
 
 /* ---------- konto (miejsce na logowanie) ---------- */
-function Who({ account, identity, profile, onChanged }: { account: Account | null; identity: IdentityProvider | null; profile: DesktopProfile; onChanged: () => Promise<unknown> }) {
+function Who({ account, identity, profile, onChanged, cloudUser, onAccount }: { account: Account | null; identity: IdentityProvider | null; profile: DesktopProfile; onChanged: () => Promise<unknown>; cloudUser: CloudUser | null; onAccount: () => void }) {
   const [edit, setEdit] = useState(false);
   const [name, setName] = useState(profile.name);
   const [role, setRole] = useState(profile.role);
   const caps = identity?.capabilities;
-  const others = allIdentities().filter((p) => p.capabilities.signIn);
+  const cloudOn = cloudConfigured();
   const save = async (e: FormEvent) => {
     e.preventDefault();
     if (name.trim().length < 2) return;
@@ -104,12 +119,12 @@ function Who({ account, identity, profile, onChanged }: { account: Account | nul
     <div className="lc-row"><button className="lc-btn pri sm" type="submit" disabled={name.trim().length < 2}>{T('Zapisz')}</button><button className="lc-btn sm" type="button" onClick={() => { setName(profile.name); setRole(profile.role); setEdit(false); }}>{T('Anuluj')}</button></div>
   </form>;
   return <div className="lc-who">
-    <span className="lc-av" aria-hidden="true">{initials(account?.name || profile.name)}</span>
-    <span className="lc-who-t"><b>{profile.role || T('Użytkownik')}</b><small>{identity ? identity.label() : T('Konto lokalne')}</small></span>
+    {cloudUser ? <Avatar name={cloudUser.name || cloudUser.email} src={cloudUser.avatar} color={cloudUser.color} size={36} /> : <span className="lc-av" aria-hidden="true">{initials(account?.name || profile.name)}</span>}
+    <span className="lc-who-t"><b>{(cloudUser ? cloudUser.position : profile.role) || T('Użytkownik')}</b><small>{cloudUser ? T('Konto w chmurze') : identity ? identity.label() : T('Konto lokalne')}</small></span>
     <span className="lc-who-a">
-      {caps?.editProfile && <button type="button" className="lc-ico" data-act="profile-edit" aria-label={T('Zmień imię i nazwisko')} title={T('Zmień imię i nazwisko')} onClick={() => setEdit(true)}>{ic('edit')}</button>}
-      {/* miejsce na przyszłe logowanie: pojawia się samo, gdy zarejestrowano dostawcę z signIn */}
-      {others.map((p) => <button key={p.id} type="button" className="lc-ico" data-act={'signin-' + p.id} aria-label={T('Zaloguj się')} title={T('Zaloguj się')} onClick={() => void p.signIn?.().then(onChanged)}>{ic('person')}</button>)}
+      {cloudUser ? <button type="button" className="lc-ico" data-act="account-open" aria-label={T('Twoje konto')} title={T('Twoje konto')} onClick={onAccount}>{ic('edit')}</button>
+        : caps?.editProfile && <button type="button" className="lc-ico" data-act="profile-edit" aria-label={T('Zmień imię i nazwisko')} title={T('Zmień imię i nazwisko')} onClick={() => setEdit(true)}>{ic('edit')}</button>}
+      {cloudOn && !cloudUser && <button type="button" className="lc-ico" data-act="signin-cloud" aria-label={T('Zaloguj do chmury')} title={T('Zaloguj do chmury')} onClick={onAccount}>{ic('cloud')}</button>}
     </span>
   </div>;
 }
@@ -148,10 +163,9 @@ function Welcome({ onDone }: { onDone: () => Promise<void> }) {
 }
 
 /* ---------- lista projektów ---------- */
-function Home({ profile, lang, error, onNew, onOpen }: { profile: DesktopProfile | null; lang: string; error: string; onNew: () => void; onOpen: (e: ProjectEntry) => void }) {
+function Home({ profile, lang, error, onNew, onOpen, reload, srcId, setSrcId, cloudUser, onAccount, onJoin, onManage }: { profile: DesktopProfile | null; lang: string; error: string; onNew: () => void; onOpen: (e: ProjectEntry) => void; reload: number; srcId: string; setSrcId: (s: string) => void; cloudUser: CloudUser | null; onAccount: () => void; onJoin: () => void; onManage: (id?: string) => void }) {
   const [rows, setRows] = useState<ProjectEntry[] | null>(null);
   const [q, setQ] = useState('');
-  const [srcId, setSrcId] = useState('local');
   const [account, setAccount] = useState<Account | null>(null);
   const [sources, setSources] = useState<ProjectSource[]>([]);
   const listRef = useRef<HTMLUListElement>(null);
@@ -167,14 +181,14 @@ function Home({ profile, lang, error, onNew, onOpen }: { profile: DesktopProfile
       setAccount(a); setSources(vis);
     })();
     return () => { live = false; };
-  }, []);
+  }, [reload]);
   useEffect(() => {
     const s = sources.find((x) => x.id === srcId) || sources[0];
     if (!s) return;
     let live = true; setRows(null);
     s.list(account).then((r) => { if (live) setRows(r.sort((a, b) => b.updatedAt - a.updatedAt)); }).catch(() => { if (live) setRows([]); });
     return () => { live = false; };
-  }, [sources, srcId, account]);
+  }, [sources, srcId, account, reload]);
 
   const shown = useMemo(() => (rows || []).filter((r) => !q.trim() || r.title.toLowerCase().includes(q.trim().toLowerCase())), [rows, q]);
   const key = (e: KeyboardEvent) => {
@@ -187,7 +201,12 @@ function Home({ profile, lang, error, onNew, onOpen }: { profile: DesktopProfile
   return <div className="lc-home" onKeyDown={key}>
     <header className="lc-head">
       <h2>{T('Projekty')}</h2>
-      <button type="button" className="lc-btn pri" data-act="launcher-new" onClick={onNew}>{ic('plus')}{T('Nowy projekt')}</button>
+      <span className="lc-hbtns">
+        {cloudUser && <button type="button" className="lc-btn" data-act="launcher-join" onClick={onJoin}>{ic('link')}{T('Dołącz kodem')}</button>}
+        {cloudUser && <button type="button" className="lc-btn" data-act="launcher-manage" onClick={() => onManage()}>{ic('people')}{T('Zarządzanie')}</button>}
+        {!cloudUser && cloudConfigured() && <button type="button" className="lc-btn" data-act="launcher-signin" onClick={onAccount}>{ic('cloud')}{T('Zaloguj do chmury')}</button>}
+        <button type="button" className="lc-btn pri" data-act="launcher-new" onClick={onNew}>{ic('plus')}{T('Nowy projekt')}</button>
+      </span>
     </header>
     {sources.length > 1 && <div className="lc-tabs" role="tablist">{sources.map((s) => <button key={s.id} type="button" role="tab" aria-selected={s.id === srcId} data-act={'src-' + s.id} onClick={() => setSrcId(s.id)}>{s.label()}</button>)}</div>}
     <div className="lc-search">{ic('eye')}<input ref={search} className="lc-inp bare" value={q} placeholder={T('Szukaj projektu…')} aria-label={T('Szukaj projektu…')} onChange={(e) => setQ(e.target.value)}
@@ -202,7 +221,7 @@ function Home({ profile, lang, error, onNew, onOpen }: { profile: DesktopProfile
             <span className="lc-tile" style={{ background: tint(p.id) }} aria-hidden="true">{initials(p.title)}</span>
             <span className="lc-pt"><b>{p.title || T('Bez tytułu')}{p.enc && <i className="lc-lock" title={T('Projekt zaszyfrowany')}>{ic('lock')}</i>}{p.demo && <em>{T('Przykład')}</em>}</b>
               <small>{[p.scenes != null ? plN(p.scenes, 'scena', 'sceny', 'scen') : '', p.days != null ? plN(p.days, 'dzień', 'dni', 'dni') : '', ago(p.updatedAt, lang)].filter(Boolean).join(' · ')}</small></span>
-            {p.shared && <span className="lc-share">{ic('people')}{p.shared.online}</span>}
+            {p.locked ? <span className="lc-share warn">{ic('lock')}{T('Wpisz kod')}</span> : p.shared && <span className="lc-share">{ic('people')}{p.shared.members}</span>}
             <span className="lc-go" aria-hidden="true">{ic('right')}</span>
           </button></m.li>)}</ul>}
     </div>
@@ -211,11 +230,12 @@ function Home({ profile, lang, error, onNew, onOpen }: { profile: DesktopProfile
 }
 
 /* ---------- nowy projekt ---------- */
-function NewProject({ onBack, onCreate, error }: { onBack: () => void; onCreate: (title: string, template: 'empty' | 'demo') => void; error: string }) {
+function NewProject({ onBack, onCreate, error, cloudUser, initialSource }: { onBack: () => void; onCreate: (title: string, template: 'empty' | 'demo', source: string) => void; error: string; cloudUser: CloudUser | null; initialSource: string }) {
   const [title, setTitle] = useState('');
+  const [where, setWhere] = useState(cloudUser && initialSource === 'cloud' ? 'cloud' : 'local');
   const [tpl, setTpl] = useState<'empty' | 'demo'>('empty');
   useEffect(() => { const h = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') onBack(); }; window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, [onBack]);
-  const submit = (e: FormEvent) => { e.preventDefault(); onCreate(title.trim() || (tpl === 'demo' ? '' : T('Nowy projekt')), tpl); };
+  const submit = (e: FormEvent) => { e.preventDefault(); onCreate(title.trim() || (tpl === 'demo' ? '' : T('Nowy projekt')), tpl, where); };
   return <form className="lc-form" onSubmit={submit}>
     <button type="button" className="lc-back" data-act="launcher-back" onClick={onBack}>{ic('left')}{T('Projekty')}</button>
     <h2>{T('Nowy projekt')}</h2>
@@ -225,6 +245,11 @@ function NewProject({ onBack, onCreate, error }: { onBack: () => void; onCreate:
         <button type="button" aria-pressed={tpl === 'empty'} data-act="tpl-empty" onClick={() => setTpl('empty')}><b>{T('Pustego projektu')}</b><small>{T('Wczytasz scenariusz albo dodasz sceny ręcznie.')}</small></button>
         <button type="button" aria-pressed={tpl === 'demo'} data-act="tpl-demo" onClick={() => setTpl('demo')}><b>{T('Przykładu')}</b><small>{T('Gotowy scenariusz z planem, by obejrzeć program w działaniu.')}</small></button>
       </div></div>
+    {cloudUser && <div className="lc-f"><span>{T('Gdzie zapisać')}</span>
+      <div className="lc-cards" role="group">
+        <button type="button" aria-pressed={where === 'local'} data-act="where-local" onClick={() => setWhere('local')}><b>{T('Ten komputer')}</b><small>{T('Tylko Ty, bez internetu.')}</small></button>
+        <button type="button" aria-pressed={where === 'cloud'} data-act="where-cloud" onClick={() => setWhere('cloud')}><b>{T('Chmura (zespół)')}</b><small>{T('Praca wspólna na żywo, szyfrowana end-to-end.')}</small></button>
+      </div></div>}
     {error && <p className="lc-err" role="alert">{error}</p>}
     <button className="lc-btn pri lg" type="submit" data-act="launcher-create">{T('Utwórz i otwórz')}{ic('right')}</button>
   </form>;

@@ -41,3 +41,7 @@ Kopię z wersji webowej wczytasz przez Plik → „Wczytaj projekt z kopii…”
 * `scripts/prepare.js` – składa `app/` (program + pdf.js + czcionki lokalnie),
 * `test/` – testy zapisu i profilu (Node) oraz test całej aplikacji w Electronie (`npm run e2e`, na Linuksie przez `xvfb-run -a`),
 * `.github/workflows/` – testy (`ci.yml`) i budowanie instalatorów.
+
+## Chmura i praca zespołowa
+
+Konto w programie, projekty w chmurze szyfrowane end-to-end, kody zaproszeń, role i praca na żywo: opis i konfiguracja Supabase w [docs/CHMURA.md](docs/CHMURA.md).

@@ -1,6 +1,6 @@
 /* Zamiar wybrany w oknie startowym (otwórz / utwórz projekt) – sprawdzany w procesie głównym, bo przychodzi z okna. */
 const { SAFE } = require('./store');
-const SOURCES = ['local']; // tu dopisuje się kolejne źródła projektów (np. 'cloud'), gdy będą obsługiwane po stronie programu
+const SOURCES = ['local', 'cloud'];
 
 function validate(i) {
   if (!i || typeof i !== 'object') return null;

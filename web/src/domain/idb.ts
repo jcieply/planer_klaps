@@ -1,7 +1,7 @@
 /* Lekka obsługa IndexedDB (zamiast Dexie): baza „klaps” z magazynami projektów i historii wersji.
    Wersja 20 jest zgodna z bazą utworzoną wcześniej przez Dexie (wersja 10, magazyn „projects” z kluczem „id”). */
 export const IDB_NAME = 'klaps';
-const IDB_VERSION = 21;
+const IDB_VERSION = 22;
 
 const req = <T,>(r: IDBRequest<T>) => new Promise<T>((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 
@@ -12,6 +12,8 @@ export function openIdb(): Promise<IDBDatabase> {
       const db = r.result;
       if (!db.objectStoreNames.contains('projects')) db.createObjectStore('projects', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('snapshots')) db.createObjectStore('snapshots', { keyPath: 'id' }).createIndex('pid', 'pid');
+      // v22: pamięć podręczna projektów z chmury (zaszyfrowana kluczem projektu) – praca bez internetu
+      if (!db.objectStoreNames.contains('collab')) db.createObjectStore('collab', { keyPath: 'id' });
       // v21: opisy wersji osobno od treści – lista historii nie wczytuje już całych projektów
       if (!db.objectStoreNames.contains('snapmeta')) {
         const meta = db.createObjectStore('snapmeta', { keyPath: 'id' });

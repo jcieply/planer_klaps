@@ -12,7 +12,9 @@ import { decodeText, docxXml, extractPdf, MIME, saveFile } from '../domain/files
 import { KLAPS_EXT, isKlaps, readKlaps } from '../domain/klapsfile';
 import { describeZod, EncryptedFileSchema, ProjectFileSchema, type Geo, type ProjectState } from '../domain/model';
 import { I18N, T_ } from '../domain/i18n';
-import { clearHistory, getSt, mutate, useProject } from './project';
+import { clearHistory, flags, getSt, mutate, useProject } from './project';
+import * as cloud from '../collab/cloud';
+import { closeCloud, flushCloud, isCloud, openCloud, useCollab } from '../collab/session';
 import { setUI, toast, ui } from './ui';
 import { pl, plN } from '../lib/format';
 import { desktop, intentFromUrl } from '../desktop/bridge';
@@ -27,12 +29,13 @@ export const hasPendingSave = () => !!saveTimer;
 /** anuluje zaplanowany zapis (np. przed zaszyfrowaniem projektu, aby nie zapisać jawnej wersji) */
 export function cancelSave() { if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; } }
 export function queueSave() {
-  if (!P().st) return;
+  if (!P().st || isCloud()) return;
   P().setSave('busy');
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { void doSave(); }, 700);
 }
 export async function doSave() {
+  if (isCloud()) return;
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
   const { st, pid } = P();
   if (!st || !pid) return;
@@ -58,11 +61,12 @@ const idle: Array<() => void> = [];
 const settle = () => { if (!saving && !pending && !saveTimer) idle.splice(0).forEach((f) => f()); };
 /** zapis „teraz” i czekanie, aż dane naprawdę trafią na dysk (zamknięcie okna, wyjście z programu) */
 export async function flushSave() {
+  if (isCloud()) { await flushCloud(); return; }
   await doSave();
   if (saving || pending) await new Promise<void>((r) => idle.push(r));
 }
 // każda zmiana danych otwartego projektu → zapis
-useProject.subscribe((s, prev) => { if (s.st && s.st !== prev.st && s.pid === prev.pid && !applyingRemote) queueSave(); });
+useProject.subscribe((s, prev) => { if (s.st && s.st !== prev.st && s.pid === prev.pid && !applyingRemote && !flags.remote) queueSave(); });
 let applyingRemote = false;
 
 /* ---------- historia wersji ---------- */
@@ -123,6 +127,38 @@ export async function openProject(id: string) {
   setUI((s) => { s.sel = []; s.drawer = null; s.imp = { status: 'idle' }; s.f = { q: '', ie: '', tod: '', cast: '', site: '', plan: '' }; s.month = null; s.confirmDel = false; s.tab = 'home'; s.more = false; s.shImp = null; s.csDay = null; });
   try { localStorage.setItem('klaps.active', id); } catch { /* brak */ }
 }
+/** otwiera projekt z chmury (praca zespołowa, zaszyfrowana end-to-end) */
+export async function openCloudProject(id: string) {
+  const st = await openCloud(id);
+  P().load(id, st); clearHistory();
+  setUI((s) => { s.sel = []; s.drawer = null; s.imp = { status: 'idle' }; s.f = { q: '', ie: '', tod: '', cast: '', site: '', plan: '' }; s.month = null; s.confirmDel = false; s.tab = st.scenes.length ? 'home' : 'import'; s.more = false; s.shImp = null; s.csDay = null; s.settings = false; });
+  P().setSave('saved');
+}
+/** kopiuje otwarty projekt lokalny do chmury (zostaje też lokalnie) i otwiera kopię w chmurze */
+export async function shareToCloud() {
+  const { st, pid } = P();
+  if (!st || !pid || isCloud()) return;
+  setUI((s) => { s.busy = T('Przenoszę projekt do chmury…'); });
+  try {
+    await doSave();
+    const copy = JSON.parse(JSON.stringify(st)) as ProjectState;
+    const id = await cloud.createProject(copy.meta.title || T('Projekt'), copy);
+    setUI((s) => { s.busy = null; });
+    await openCloudProject(id);
+    toast(T('Projekt jest w chmurze. Zaproś osoby w oknie startowym (Zarządzanie).'));
+  } catch (e: any) {
+    setUI((s) => { s.busy = null; });
+    toast(T('Nie udało się udostępnić projektu: {e}', { e: e && e.message ? e.message : T('nieznany błąd') }), 'bad');
+  }
+}
+/** zakłada projekt w chmurze z podanego stanu (pusty, przykład albo kopia lokalnego) i go otwiera */
+export async function createCloudProject(title: string, state?: ProjectState) {
+  const st = state || Core.newState();
+  st.meta.title = title || st.meta.title || T('Nowy projekt');
+  const id = await cloud.createProject(st.meta.title, st);
+  await openCloudProject(id);
+  return id;
+}
 export async function newProject(title?: string | null, state?: ProjectState, key?: any) {
   const id = Core.uid();
   const st = state || Core.newState();
@@ -141,6 +177,19 @@ export async function switchProject(id: string) {
 }
 export async function deleteProject() {
   const id = P().pid!;
+  if (isCloud()) {
+    // projekt w chmurze: właściciel usuwa go dla wszystkich, pozostali tylko opuszczają
+    try {
+      const owner = useCollab.getState().role === 'owner';
+      await closeCloud();
+      if (owner) await cloud.deleteProject(id); else await cloud.leaveProject(id);
+      await cloud.cacheDrop(id);
+    } catch (e: any) { toast(T('Nie udało się usunąć projektu: {e}', { e: e.message }), 'bad'); return; }
+    setUI((s) => { s.settings = false; s.confirmDel = false; });
+    P().load(null as any, null as any); clearHistory();
+    await desktop()!.launcher.show();
+    return;
+  }
   try { await Store.remove(id); void Sync.removed(id); } catch (e: any) { toast(T('Nie udało się usunąć projektu: {e}', { e: e.message }), 'bad'); return; }
   const list = P().projects.filter((p) => p.id !== id);
   P().setProjects(list);
@@ -177,6 +226,22 @@ export async function boot() {
   });
   // aplikacja na komputer: okno startowe przekazuje, co otworzyć albo utworzyć
   const intent = desktop() ? intentFromUrl() : null;
+  if (intent && intent.source === 'cloud') {
+    try {
+      if (intent.type === 'open') await openCloudProject(intent.id);
+      else {
+        const st = intent.template === 'demo' ? demoState() : undefined;
+        if (st && intent.title) st.demo = false;
+        await createCloudProject(intent.title || (st ? st.meta.title : T('Nowy projekt')), st);
+      }
+      if (P().st) return;
+    } catch (e: any) {
+      // bez klucza, internetu albo uprawnień wracamy do okna startowego z wyjaśnieniem
+      toast(e && e.message ? e.message : T('Nie udało się otworzyć projektu z chmury.'), 'bad');
+      await desktop()!.launcher.show();
+      return;
+    }
+  }
   if (intent) {
     try {
       if (intent.type === 'open') await openProject(intent.id);

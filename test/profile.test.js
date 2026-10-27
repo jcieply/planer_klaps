@@ -32,7 +32,8 @@ assert.strictEqual(profile.set(dir, { name: 'x'.repeat(500) }).name.length, 80);
 // zamiar z okna startowego
 assert.deepStrictEqual(intents.validate({ type: 'open', source: 'local', id: 'abc_12-3' }), { type: 'open', source: 'local', id: 'abc_12-3' });
 assert.strictEqual(intents.validate({ type: 'open', source: 'local', id: '../x' }), null, 'ścieżka zamiast identyfikatora');
-assert.strictEqual(intents.validate({ type: 'open', source: 'cloud', id: 'a' }), null, 'nieobsługiwane źródło');
+assert.deepStrictEqual(intents.validate({ type: 'open', source: 'cloud', id: 'a' }), { type: 'open', source: 'cloud', id: 'a' });
+assert.strictEqual(intents.validate({ type: 'open', source: 'ftp', id: 'a' }), null, 'nieobsługiwane źródło');
 assert.strictEqual(intents.validate(null), null);
 assert.strictEqual(intents.validate({ type: 'rm' }), null);
 const c = intents.validate({ type: 'create', title: '  Film \n  tytuł  ', template: 'demo' });

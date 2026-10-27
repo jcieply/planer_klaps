@@ -16,6 +16,10 @@ jobs:
       - run: npm test
       - name: Build
         run: npm run dist:win
+        env:
+          # adres chmury i klucz publiczny (anon) wbudowywane w program – użytkownik niczego nie wpisuje; patrz docs/CHMURA.md
+          VITE_SUPABASE_URL: ${{ vars.KLAPS_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.KLAPS_SUPABASE_ANON_KEY }}
       - uses: actions/upload-artifact@v4
         with:
           name: Klaps-Planer-Windows

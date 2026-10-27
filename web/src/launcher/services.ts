@@ -8,7 +8,7 @@ import { T } from '../domain/i18n';
 import { desktop, type DesktopProfile, type LaunchIntent, type Source } from '../desktop/bridge';
 import type { ProjectMeta } from '../domain/model';
 
-export interface Account { id: string; name: string; role?: string; email?: string; provider: string }
+export interface Account { id: string; name: string; role?: string; email?: string; provider: string; avatar?: string }
 
 export interface IdentityProvider {
   id: string;
@@ -27,6 +27,9 @@ export interface ProjectEntry extends Pick<ProjectMeta, 'id' | 'title' | 'update
   source: Source;
   /** projekt współdzielony (chmura): właściciel i liczba osób, które mają go teraz otwarty */
   shared?: { owner: string; members: number; online: number };
+  /** moja rola w projekcie współdzielonym; `locked` = brak klucza na tym komputerze (trzeba wpisać kod zaproszenia) */
+  role?: 'owner' | 'editor' | 'viewer';
+  locked?: boolean;
 }
 
 export interface ProjectSource {

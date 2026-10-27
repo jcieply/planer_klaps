@@ -8,7 +8,9 @@ import { Vault } from '../domain/vault';
 import { mutate, useProject } from '../state/project';
 import { setUI, toast, useUI } from '../state/ui';
 import { usePrefs } from '../state/prefs';
-import { cancelSave, deleteProject, doSave, lockCurrent, newProject, openProject, unlockLocked } from '../state/actions';
+import { cancelSave, deleteProject, doSave, lockCurrent, newProject, openProject, shareToCloud, unlockLocked } from '../state/actions';
+import { useCollab } from '../collab/session';
+import { cloudConfigured, currentUser } from '../collab/cloud';
 import { BlurInput, Btn, Deferred, Field, Icon, Modal, Seg, TextInput, cx } from '../components/ui';
 import { useSyncStatus } from './Shell';
 import { DocLang } from './Misc';
@@ -25,6 +27,7 @@ function SettingsBody() {
   const st0 = useProject((s) => s.st);
   const { lang, theme, setPrefs } = usePrefs();
   const confirmDel = useUI((s) => s.confirmDel);
+  const cc = useCollab();
   if (!st0) return null; // projekt zablokowany w trakcie zamykania okna
   const st = st0;
   const m = st.meta;
@@ -41,6 +44,7 @@ function SettingsBody() {
         <div className="field"><span className="lbl">{T('Motyw')}</span><Seg value={theme} act="set-theme" onChange={(v) => setPrefs({ theme: v })} items={[['auto', T('Systemowy')], ['light', T('Jasny')], ['dark', T('Ciemny')]]} /></div>
       </div>
       {desktop() && <div className="row" style={{ marginTop: 12, gap: 10 }}><Btn act="to-launcher" icon="left" onClick={() => void backToLauncher()}>{T('Okno startowe')}</Btn><span className="small muted">{T('Zapisuje projekt i wraca do wyboru projektu.')}</span></div>}</div>
+    <CloudSettings />
     <SecuritySettings />
     <SyncSettings />
     <div className="set-sec"><h3>{T('Projekt')}</h3>
@@ -65,8 +69,29 @@ function SettingsBody() {
     </div>
     <p className="small muted" style={{ margin: 0 }}>{T('Limit stron służy do planu automatycznego i ostrzeżeń o przeładowanym dniu. Godziny dnia liczą się w Planie pracy z czasów realizacji. Limity czasu pracy i odpoczynku włączają ostrzeżenia BHP (domyślnie 12 h pracy i 11 h przerwy).')}</p>
     <div style={{ borderTop: '1px solid var(--line-2)', paddingTop: 14 }}><div className="row">{confirmDel
-      ? <><span className="small"><b>{T('Usunąć cały projekt „{t}”?', { t: m.title || T('Bez tytułu') })}</b> {T('Tego nie da się cofnąć.')}</span><Btn v="danger" act="proj-del-yes" onClick={() => void deleteProject()}>{T('Tak, usuń projekt')}</Btn><Btn act="proj-del-no" onClick={() => setUI((s) => { s.confirmDel = false; })}>{T('Anuluj')}</Btn></>
-      : <Btn v="danger" act="proj-del" icon="trash" onClick={() => setUI((s) => { s.confirmDel = true; })}>{T('Usuń projekt')}</Btn>}</div></div>
+      ? <><span className="small"><b>{cc.active && cc.role !== 'owner' ? T('Opuścić projekt „{t}”?', { t: m.title || T('Bez tytułu') }) : cc.active ? T('Usunąć projekt „{t}” dla wszystkich osób?', { t: m.title || T('Bez tytułu') }) : T('Usunąć cały projekt „{t}”?', { t: m.title || T('Bez tytułu') })}</b> {cc.active && cc.role !== 'owner' ? T('Stracisz dostęp, dopóki ktoś nie zaprosi Cię ponownie.') : T('Tego nie da się cofnąć.')}</span><Btn v="danger" act="proj-del-yes" onClick={() => void deleteProject()}>{cc.active && cc.role !== 'owner' ? T('Tak, opuść projekt') : T('Tak, usuń projekt')}</Btn><Btn act="proj-del-no" onClick={() => setUI((s) => { s.confirmDel = false; })}>{T('Anuluj')}</Btn></>
+      : <Btn v="danger" act="proj-del" icon="trash" onClick={() => setUI((s) => { s.confirmDel = true; })}>{cc.active && cc.role !== 'owner' ? T('Opuść projekt') : T('Usuń projekt')}</Btn>}</div></div>
+  </div>;
+}
+
+/* ---------- chmura (praca zespołowa) ---------- */
+function CloudSettings() {
+  const cc = useCollab();
+  const [signed, setSigned] = useState<boolean | null>(null);
+  useEffect(() => { let live = true; if (desktop() && cloudConfigured() && !cc.active) void currentUser().then((u) => { if (live) setSigned(!!u); }).catch(() => { if (live) setSigned(false); }); return () => { live = false; }; }, [cc.active]);
+  if (!desktop() || !cloudConfigured()) return null;
+  if (cc.active) {
+    const roleTxt = cc.role === 'viewer' ? T('Podgląd') : cc.role === 'owner' ? T('Właściciel') : T('Edytor');
+    return <div className="set-sec" id="sec-cloud"><h3>{T('Chmura – praca zespołowa')}</h3>
+      <div className="sec-box on"><Icon n="shield" /><div><b>{T('Projekt jest zaszyfrowany end-to-end')}</b><div className="small muted">{T('Treść widzą tylko osoby z kluczem projektu (zawiera go kod zaproszenia). Serwer przechowuje wyłącznie szyfrogramy.')}</div></div></div>
+      <p className="small" style={{ margin: '10px 0 6px' }}>{T('Twoja rola: {r}. Osoby w projekcie: {n}.', { r: roleTxt, n: cc.people.length || cc.peers.length })}</p>
+      <div className="row"><Btn act="cloud-manage" icon="people" onClick={() => { void backToLauncher(); }}>{T('Osoby i kody zaproszeń (okno startowe)')}</Btn></div>
+    </div>;
+  }
+  return <div className="set-sec" id="sec-cloud"><h3>{T('Chmura – praca zespołowa')}</h3>
+    <p className="small muted">{T('Udostępnij projekt zespołowi: powstanie jego zaszyfrowana kopia w chmurze, a w niej możecie pracować razem na żywo.')}</p>
+    {signed ? <div className="row"><Btn v="primary" act="cloud-share" icon="cloud" onClick={() => void shareToCloud()}>{T('Udostępnij w chmurze')}</Btn></div>
+      : <p className="small">{signed === null ? '…' : T('Zaloguj się do chmury w oknie startowym (przycisk z chmurką), aby udostępniać projekty.')}</p>}
   </div>;
 }
 
@@ -76,6 +101,7 @@ function SecuritySettings() {
   const pid = useProject((s) => s.pid)!;
   useProject((s) => s.projects); // odświeżenie po zmianie szyfrowania
   const enc = Store.isEncrypted(pid);
+  if (useCollab.getState().active) return null; // projekt w chmurze ma własne szyfrowanie (klucz projektu), opisane w sekcji „Chmura”
   if (!Vault.available()) return <div className="set-sec"><h3>{T('Szyfrowanie projektu')}</h3><div className="notice warn"><div><Icon n="warn" /></div><div>{T('Ta przeglądarka nie udostępnia szyfrowania (Web Crypto). Otwórz Klaps przez https albo w aplikacji na Maca lub iPhone’a.')}</div></div></div>;
   return <div className="set-sec" id="sec-sec"><h3>{T('Szyfrowanie projektu (E2E)')}</h3>
     <p className="small muted">{T('Szyfrowanie end-to-end: projekt jest szyfrowany na tym urządzeniu kluczem z Twojego hasła (AES-256-GCM, PBKDF2 600 000 iteracji). W pamięci przeglądarki, w plikach, w kopii .json i na serwerze synchronizacji leżą wyłącznie zaszyfrowane dane. Hasło nie jest nigdzie zapisywane.')}</p>
@@ -183,7 +209,7 @@ function SyncSettings() {
   const st = useSyncStatus();
   const busy = useUI((s) => s.syncBusy), err = useUI((s) => s.syncErr);
   const [form, setForm] = useState(() => { const c = Sync.cfg; return { url: c.url || '', key: c.key || '', email: c.email || '', pass: '' }; });
-  if (!Sync.available()) return null;
+  if (!Sync.available() || desktop()) return null; // w aplikacji na komputer pracę zespołową obsługuje chmura Klaps (bez wpisywania adresu i klucza)
   const c = Sync.cfg;
   const head = <><h3>{T('Synchronizacja')}</h3><p className="small muted">{T('Projekty synchronizują się automatycznie między Twoimi urządzeniami (Mac, iPhone, iPad) przez Twoją bazę Supabase (darmowy plan wystarczy). Zmiany wysyłają się kilka sekund po zapisie, a nowe wersje z innych urządzeń pobierają się co minutę i po powrocie do aplikacji.')}</p></>;
   if (Sync.loggedIn()) {

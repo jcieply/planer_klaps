@@ -14,8 +14,9 @@
     "dist": "npm run prepare-app && electron-builder --publish never",
     "dist:mac": "npm run prepare-app && electron-builder --mac dmg --publish never",
     "dist:win": "npm run prepare-app && electron-builder --win nsis --publish never",
-    "test": "node test/store.test.js && node test/profile.test.js",
-    "e2e": "node test/electron.e2e.js"
+    "test": "node test/store.test.js && node test/profile.test.js && node test/secrets.test.js",
+    "e2e": "node test/electron.e2e.js",
+    "e2e:cloud": "node test/electron-cloud.e2e.js"
   },
   "dependencies": {},
   "devDependencies": {
