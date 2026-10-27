@@ -3,6 +3,8 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -32,3 +34,10 @@ jobs:
           name: zrzuty-ekranu
           path: ${{ runner.temp }}/shots
           if-no-files-found: ignore
+      - name: Zrzuty ekranu do gałęzi ci-shots (tylko podgląd na gałęzi desktop-2)
+        if: always() && github.ref == 'refs/heads/desktop-2'
+        run: |
+          cd "${{ runner.temp }}/shots" 2>/dev/null || exit 0
+          git init -q -b ci-shots && git config user.name ci && git config user.email ci@example.com
+          git add -A && git commit -q -m "zrzuty z uruchomienia ${{ github.run_id }}"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" ci-shots
