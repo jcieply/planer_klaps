@@ -1511,3 +1511,32 @@ I18N.add({
 "Przestawka między scenami (min)": "Move between scenes (min)",
 "Do jednego dnia trafia tyle scen, ile mieści się w podanym czasie zdjęć: suma czasów ujęć z shotlisty plus przestawki. Scen bez ujęć z czasem jest teraz: {n} (liczone ze stron, 12 min na ósemkę).": "A day gets as many scenes as fit in the given shooting time: the sum of shot times from the shot list plus moves. Scenes without timed shots right now: {n} (counted from pages, 12 min per eighth)."
 });
+I18N.add({
+"Odpowiedź": "Reply", "Nowy komentarz": "New comment", "Odpowiedz…": "Reply…",
+"Napisz komentarz. Wspomnij osobę zapisem @Imię Nazwisko.": "Write a comment. Mention a person with @First Last.",
+"Odpowiedz": "Reply", "Dodaj komentarz": "Add comment", "Ktoś": "Someone", "Załatwione": "Resolved",
+"Otwórz ponownie": "Reopen", "Oznacz jako załatwione": "Mark as resolved", "Usuń": "Delete",
+"Komentarze": "Comments", "Brak komentarzy.": "No comments.", "Komentarze: {n}": "Comments: {n}",
+"Scena {n}": "Scene {n}", "Scena (usunięta)": "Scene (deleted)", "Dzień (usunięty)": "Day (deleted)", "Ogólne": "General",
+"Filtr komentarzy": "Comment filter", "Otwarte": "Open", "Wspomniano mnie": "Mentioned me", "Wszystkie": "All",
+"Brak komentarzy w tym widoku.": "No comments in this view.", "Nowy komentarz ogólny": "New general comment",
+"Komentarze do dnia": "Comments for the day",
+"Wzmianki o Tobie w komentarzach: {n}": "Mentions of you in comments: {n}", "Pokaż": "Show",
+"Wzmianka w komentarzu": "Mention in a comment", "Klaps Planer – wzmianka": "Klaps Planer – mention"
+});
+I18N.add({
+"Współpraca": "Collaboration", "Widok": "View", "Dziennik zmian": "Change log",
+"Ostatnie zmiany w projekcie. Wpisy są szyfrowane – serwer ich nie czyta.": "Recent changes in the project. Entries are encrypted – the server cannot read them.",
+"Odśwież": "Refresh", "Dziennik jest pusty. Zmiany pojawią się tu po chwili od zapisu.": "The log is empty. Changes appear here shortly after saving.",
+"dodano": "added", "usunięto": "removed", "zmieniono": "changed", "zmieniono kolejność": "reordered",
+"Scena": "Scene", "Ujęcie": "Shot", "Dzień": "Day", "Postać": "Character", "Ekipa": "Crew", "Lokacja": "Location", "Kosztorys": "Budget", "Plan pracy": "Call sheet", "Transport": "Transport",
+"Zadanie": "Task", "Komentarz": "Comment", "Ustawienia projektu": "Project settings", "Raport dzienny": "Daily report", "Plik": "File", "Catering": "Catering",
+"opis": "description", "uwagi": "notes", "numer": "number", "miejsce": "place", "obiekt": "site", "pora dnia": "time of day", "wnętrze/plener": "int/ext", "długość": "length", "obsada": "cast", "tekst": "text", "elementy": "elements",
+"tytuł": "title", "data": "date", "zbiórka": "call", "koniec": "end", "rodzaj": "type", "sceny": "scenes", "stawka": "rate", "telefon": "phone", "e-mail": "e-mail", "koszt planowany": "planned cost", "koszt rzeczywisty": "actual cost",
+"nazwa": "name", "czas": "time", "obiektyw": "lens", "wykonane": "done", "adres": "address", "umowa": "contract", "waluta": "currency", "harmonogram": "schedule"
+});
+I18N.add({
+"{n} ma teraz otwartą tę samą pozycję – zmiany łączą się same, ale warto się dogadać.": "{n} has this item open right now – changes merge automatically, but it is worth coordinating.",
+"{n} mają teraz otwartą tę samą pozycję – zmiany łączą się same, ale warto się dogadać.": "{n} have this item open right now – changes merge automatically, but it is worth coordinating.",
+"Teraz otwarte przez: {n}": "Open now by: {n}"
+});

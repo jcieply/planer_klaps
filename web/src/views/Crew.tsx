@@ -1,4 +1,5 @@
 /* Ekipa: lista osób z pionami i szczegółami, siatka dni pracy, raport cateringowy. */
+import { Editing } from './Presence';
 import { T } from '../domain/i18n';
 import { Core } from '../domain/core';
 import type { CrewMember, Day, ProjectState } from '../domain/model';
@@ -69,7 +70,7 @@ function CrewRow({ st, c, open, work, nums }: { st: ProjectState; c: CrewMember;
     <td style={{ minWidth: 150 }}><TextInput value={c.role} placeholder={T('funkcja')} bind="crew.role" bid={c.id} label={T('Funkcja')} onCommit={set('role')} /></td>
     <td style={{ minWidth: 130 }}><TextInput value={c.phone} placeholder={T('telefon')} inputMode="tel" bind="crew.phone" bid={c.id} label={T('Telefon')} onCommit={set('phone')} /></td>
     <td style={{ width: 170 }}><div className="rowact">{c.dietType && c.dietType !== 'meat' && <span className="diet-tag" title={Core.dietLabel(c.dietType)}>{Core.dietLabel(c.dietType, true)}</span>}
-      <Btn sm v={open ? '' : 'ghost'} act="crew-toggle" data-id={c.id} aria-expanded={open} aria-label={T('Szczegóły: {n}', { n: nm })} onClick={() => setUI((s) => { s.crewOpen = s.crewOpen.includes(c.id) ? s.crewOpen.filter((x) => x !== c.id) : [...s.crewOpen, c.id]; })}>{open ? T('Zwiń') : T('Szczegóły')}</Btn>
+      <Editing k="crew" id={c.id} /><Btn sm v={open ? '' : 'ghost'} act="crew-toggle" data-id={c.id} aria-expanded={open} aria-label={T('Szczegóły: {n}', { n: nm })} onClick={() => setUI((s) => { s.crewOpen = s.crewOpen.includes(c.id) ? s.crewOpen.filter((x) => x !== c.id) : [...s.crewOpen, c.id]; })}>{open ? T('Zwiń') : T('Szczegóły')}</Btn>
       <Btn sm v="ghost danger" act="crew-del" data-id={c.id} aria-label={T('Usuń: {n}', { n: nm })} onClick={() => {
         if (!confirmTwice('crew:' + c.id)) { toast(T('Kliknij jeszcze raz, aby usunąć: {n}.', { n: Core.crewName(c) || T('osoba bez nazwiska') }), 'bad'); return; }
         mutate((x) => { x.crew = x.crew.filter((y) => y.id !== c.id); }); setUI((s) => { s.crewOpen = s.crewOpen.filter((x) => x !== c.id); });

@@ -1,5 +1,6 @@
 /* Rozpiska scen: paski scen z filtrami, zaznaczaniem i akcjami zbiorczymi.
    Przy dużych scenariuszach lista jest wirtualizowana (TanStack Virtual) – rysowane są tylko widoczne paski. */
+import { Editing } from './Presence';
 import { memo, useMemo, useRef } from 'react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { T, T_ } from '../domain/i18n';
@@ -80,7 +81,7 @@ const Strip = memo(function Strip({ s, sch, checked, castTitle, shot }: { s: Sce
     onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); open(); } }}>
     <div className="c"><input type="checkbox" data-act="sel-toggle" data-id={s.id} checked={checked} aria-label={T('Zaznacz scenę {n}', { n: s.num })} onChange={() => setUI((u) => { u.sel = u.sel.includes(s.id) ? u.sel.filter((x) => x !== s.id) : [...u.sel, s.id]; })} /></div>
     <div className="c scn">{s.num}</div><div className="c">{Core.IE_LABEL[s.ie] || '—'}</div><div className="c">{(Core.TOD[s.tod] || {}).short || ''}</div>
-    <div className="plc">{s.place || s.site || '—'}{s.site && s.place && s.site !== s.place ? <small>{s.site}</small> : null}</div>
+    <div className="plc"><Editing k="scene" id={s.id} />{s.place || s.site || '—'}{s.site && s.place && s.site !== s.place ? <small>{s.site}</small> : null}</div>
     <div className="syn">{s.synopsis}</div>
     <div className="cst" title={castTitle}>{s.cast.slice().sort((a, b) => a - b).join(', ')}</div>
     <div className="c num">{Core.fmtEighths(s.eighths)}</div>

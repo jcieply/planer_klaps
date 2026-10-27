@@ -38,6 +38,7 @@ export interface UIState {
   todoF: 'open' | 'done' | 'all';
   csPickAll: boolean;
   history: boolean;
+  comments: boolean;
   dprDay: string | null;
   more: boolean;
   pw: PwDialog | null;
@@ -55,7 +56,7 @@ const initial: UIState = {
   settings: false, confirmDel: false, imp: { status: 'idle' }, paste: false, pasteText: '',
   exp: { calendar: true, board: true, shotlist: true, cast: true, crew: true, catering: true, sites: true, dood: true, callsheet: true, dpr: true, transport: true, budget: true },
   csDay: null, trDay: '', crewOpen: [], castOpen: [], siteOpen: [], crewF: { q: '', dept: '' }, shF: { scene: '' }, crewView: 'list', csPick: false,
-  busy: null, showScript: false, confirmReplace: false, todoF: 'open', csPickAll: false, history: false, dprDay: null, more: false, pw: null, shImp: null, toasts: [], syncBusy: false, syncErr: '',
+  busy: null, showScript: false, confirmReplace: false, todoF: 'open', csPickAll: false, history: false, comments: false, dprDay: null, more: false, pw: null, shImp: null, toasts: [], syncBusy: false, syncErr: '',
 };
 
 interface UIStore extends UIState { set: (recipe: (s: UIState) => void) => void; reset: () => void }

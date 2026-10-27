@@ -1,4 +1,5 @@
 /* Lokacje: obiekty zdjęciowe z danymi właściciela, zasilaniem, toaletą, campem i statusem umowy. */
+import { Editing } from './Presence';
 import { T } from '../domain/i18n';
 import { Core } from '../domain/core';
 import type { ProjectState } from '../domain/model';
@@ -41,7 +42,7 @@ function SiteRow({ st, x, open }: { st: ProjectState; x: any; open: boolean }) {
     <td className="num">{x.scenes}</td><td className="num">{x.days.length ? x.days.map((n: number) => 'D' + n).join(', ') : '—'}</td>
     <td style={{ maxWidth: 220 }}>{scs.map((s) => <button type="button" key={s.id} className="numlink" data-act="scene-open" data-id={s.id} title={s.place} onClick={() => setUI((u) => { u.drawer = s.id; u.showScript = false; })}>{s.num}</button>)}</td>
     <td style={{ whiteSpace: 'nowrap' }}><div className="rowact">{info.power === 'generator' && <span className="diet-tag warn-tag" title={T('Brak prądu – agregat')}>{T('Agregat')}</span>}
-      <Btn sm v={open ? '' : 'ghost'} act="site-toggle" data-id={id} aria-expanded={open} aria-label={T('Szczegóły: {n}', { n: name })} onClick={() => setUI((s) => { s.siteOpen = s.siteOpen.includes(id) ? s.siteOpen.filter((y) => y !== id) : [...s.siteOpen, id]; })}>{open ? T('Zwiń') : T('Szczegóły')}</Btn>
+      <Editing k="site" id={id} /><Btn sm v={open ? '' : 'ghost'} act="site-toggle" data-id={id} aria-expanded={open} aria-label={T('Szczegóły: {n}', { n: name })} onClick={() => setUI((s) => { s.siteOpen = s.siteOpen.includes(id) ? s.siteOpen.filter((y) => y !== id) : [...s.siteOpen, id]; })}>{open ? T('Zwiń') : T('Szczegóły')}</Btn>
       {!scs.length && (st.sites[x.site] || ({} as any)).manual && <Btn sm v="ghost danger" act="site-del" data-id={id} aria-label={T('Usuń lokację')} onClick={() => mutate((s) => { delete s.sites[id]; })}><Icon n="trash" /></Btn>}</div></td></tr>;
   if (!open) return main;
   const fld = (label: string, key: string, ph: string, mode?: any) => <Field label={label}>{inp(key, ph, label, mode)}</Field>;

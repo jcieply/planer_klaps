@@ -55,12 +55,13 @@ export interface Meta {
   startDate: string; weekdays: number[]; pagesPerDay: number; call: string; callNight: string; linesPerPage: number; castMode: string;
   maxWorkH: number; minRestH: number; docLang: string; baseCity?: string;
 }
+export interface Comment { id: string; at: number; by: string; name: string; ref: string; text: string; mentions: string[]; done: boolean; parent?: string }
 export interface ProjectState {
   v: number; meta: Meta; scenes: Scene[]; cast: CastMember[]; days: Day[]; sites: Record<string, Site>; nextCast: number;
   sheets: Record<string, Sheet>; transport: { vehicles: Vehicle[]; trips: Trip[] };
   budget: { items: BudgetItem[]; rates: Record<string, { act?: string; off?: boolean }>; autoRates: boolean; currency: string; fx: Fx | null };
   crew: CrewMember[]; shots: Shot[]; media: Record<string, Media>; catering: { cast: boolean; extra: Record<string, number> };
-  todos: Todo[]; demo?: boolean; dpr?: Record<string, Dpr>;
+  todos: Todo[]; comments?: Comment[]; demo?: boolean; dpr?: Record<string, Dpr>;
 }
 export interface ProjectMeta { id: string; title: string; updatedAt: number; scenes?: number | null; days?: number | null; demo?: boolean; enc?: boolean }
 

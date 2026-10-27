@@ -14,6 +14,9 @@ import { dayLabel, kcls, mediaSrc, plN } from '../lib/format';
 import { insertRow } from '../lib/helpers';
 import { ActionSelect, Btn, DurInput, ExportBtns, Field, Icon, PageHead, Select, TextArea, TextInput, TimeInput, cx } from '../components/ui';
 import { NoDays, confirmTwice } from '../components/common';
+import { Thread } from './Comments';
+import { Editing } from './Presence';
+import { refDay } from '../collab/comments';
 
 export const ROW_PRESETS: [string, number][] = [[T_('Zbiórka ekipy'), 30], [T_('Charakteryzacja i kostiumy'), 60], [T_('Omówienie techniczne'), 15], [T_('Próba'), 20], [T_('Przejazd'), 30], [T_('Przerwa na obiad'), 45], [T_('Przerwa techniczna / przebudowa'), 30], [T_('Koniec zdjęć w lokacji'), 0], [T_('Koniec zdjęć'), 0], [T_('Rozładunek sprzętu'), 30]];
 
@@ -85,6 +88,7 @@ function CallsheetDay({ st, day, days }: { st: ProjectState; day: Day; days: Day
       }}>{T('Odbuduj z kalendarzówki')}</Btn></>;
   const field = (label: string, key: 'crewCall' | 'sunrise' | 'sunset', ph: string) => <Field label={label}><TimeInput value={sh[key]} placeholder={ph} bind={'sheet.' + key} bid={id} label={label} onCommit={(v) => sheetUpd(id, (x) => { x[key] = v; })} /></Field>;
   return <>
+    <Editing k="day" id={id} full />
     <PageHead title={T('Plan pracy')} sub={T('Call sheet dla wybranego dnia. Wpisujesz czas realizacji i przestawki, a godziny liczą się same od zbiórki ekipy. Harmonogram możesz budować ze scen z kalendarzówki albo z ujęć z shotlisty.')} right={right} />
     {alerts.length > 0 && <div className="notice bad cs-alerts"><div><Icon n="warn" /></div><div><b>{T('Ostrzeżenia czasu pracy')}</b><ul>{alerts.map((a: any, i: number) => <li key={i}>{a.text}</li>)}</ul></div></div>}
     <div className="card" style={{ marginBottom: 16 }}><div className="card-h"><h2>{T('Dzień {n}', { n: nums.get(id) })}</h2><span className="muted">{Core.fmtDatePL(day.date)}</span>
@@ -124,6 +128,7 @@ function CallsheetDay({ st, day, days }: { st: ProjectState; day: Day; days: Day
         })}</tbody></table></div> : <div className="empty"><p>{T('W scenach tego dnia nie ma postaci.')}</p></div>}</div>
     <div className="imp-grid" style={{ marginBottom: 16 }}><LocTransport st={st} day={day} sh={sh} /><Contacts st={st} id={id} sh={sh} castIds={castIds} /></div>
     <Maps st={st} dayId={id} sh={sh} />
+    <div className="card" style={{ marginTop: 14 }}><div className="card-b"><Thread refKey={refDay(id)} title={T('Komentarze do dnia')} /></div></div>
     <div className="card"><div className="card-h"><h3>{T('Elementy kamerowe i uwagi')}</h3></div><div className="card-b fgrid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
       <Field label={T('Elementy kamerowe dnia')}><TextArea rows={3} value={sh.cameraNotes} bind="sheet.cameraNotes" bid={id} placeholder={T('mocowania, sprzęt, obiektywy, szczególne wymagania')} onCommit={(v) => sheetUpd(id, (x) => { x.cameraNotes = v; })} /></Field>
       <Field label={T('Uwagi do dnia (z kalendarzówki)')}><TextArea rows={3} value={day.note} bind="day.note" bid={id} onCommit={(v) => mutate((x) => { const d = x.days.find((y) => y.id === id); if (d) d.note = v; })} /></Field>

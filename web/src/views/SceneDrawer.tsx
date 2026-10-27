@@ -9,6 +9,9 @@ import { dayLabel, kcls, parseEighths, sitesList } from '../lib/format';
 import { moveScenesToDay } from '../lib/helpers';
 import { ActionSelect, AddInput, BlurInput, Btn, Datalist, Drawer, Field, Icon, Select, TextArea, TextInput } from '../components/ui';
 import { IES, TODS } from './Board';
+import { Thread } from './Comments';
+import { Editing } from './Presence';
+import { refScene } from '../collab/comments';
 
 export function SceneDrawer() {
   const id = useUI((s) => s.drawer);
@@ -37,6 +40,7 @@ function SceneBody({ sc, close }: { sc: Scene; close: () => void }) {
       <div className="ttl">{T('Scena {n}', { n: sc.num })}<div style={{ fontSize: 15, fontWeight: 500, letterSpacing: '.02em' }}>{Core.IE_LABEL[sc.ie] || ''} {sc.place || sc.site} · {(Core.TOD[sc.tod] || {}).label || ''}</div></div>
       <Btn sm act="drawer-close" aria-label={T('Zamknij')} onClick={close}><Icon n="x" /></Btn></div>
     <div className="drawer-b" data-scroll-id="drawer">
+      <Editing k="scene" id={sc.id} full />
       <div className="fgrid">
         <Field label={T('Numer sceny')}><TextInput value={sc.num} bind="scene.num" bid={sc.id} onCommit={(v) => upd((s) => { s.num = v; })} /></Field>
         <Field label={T('Wnętrze / plener')}><Select value={sc.ie} bind="scene.ie" bid={sc.id} options={IES.map(([k, l]) => [k, T(l)])} onChange={(v) => upd((s) => { s.ie = v as Scene['ie']; })} /></Field>
@@ -72,5 +76,6 @@ function SceneBody({ sc, close }: { sc: Scene; close: () => void }) {
       <div className="row" style={{ borderTop: '1px solid var(--line-2)', paddingTop: 12 }}>{confirmDel
         ? <><span className="small">{T('Usunąć scenę {n}?', { n: sc.num })}</span><Btn sm v="danger" act="scene-del-yes" onClick={() => { mutate((x) => { Core.removeScenes(x, [sc.id]); }); setUI((s) => { s.drawer = null; s.sel = s.sel.filter((y) => y !== sc.id); }); toast(T('Scena usunięta.')); }}>{T('Tak, usuń')}</Btn><Btn sm act="scene-del-no" onClick={() => setConfirmDel(false)}>{T('Anuluj')}</Btn></>
         : <Btn sm v="ghost danger" act="scene-del" icon="trash" onClick={() => setConfirmDel(true)}>{T('Usuń scenę')}</Btn>}</div>
+      <Thread refKey={refScene(sc.id)} />
     </div></>;
 }

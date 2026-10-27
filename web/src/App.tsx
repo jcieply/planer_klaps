@@ -20,6 +20,7 @@ import { Budget, Dood, Export, Transport } from './views/Misc';
 import { SceneDrawer } from './views/SceneDrawer';
 import { LockScreen, PwDialog, Settings } from './views/Settings';
 import { History } from './views/History';
+import { CommentsPanel } from './views/Comments';
 import { Dpr } from './views/Dpr';
 
 const VIEWS: Record<Tab, () => ReactNode> = {
@@ -39,7 +40,7 @@ export function App() {
   // zmiana języka przerysowuje całość (teksty pochodzą z T() w trakcie rysowania)
   return <LazyMotion features={domAnimation} strict><div key={lang} style={{ display: 'contents' }}>
     <Shell><View /></Shell>
-    <SceneDrawer /><Settings /><ShotImport /><PwDialog /><History />
+    <SceneDrawer /><Settings /><ShotImport /><PwDialog /><History /><CommentsPanel />
     <Toasts /><Busy />
   </div></LazyMotion>;
 }

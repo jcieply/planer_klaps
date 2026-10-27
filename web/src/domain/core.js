@@ -164,6 +164,7 @@ const Core = (() => {
     if (!CURRENCIES[st.budget.currency]) st.budget.currency = 'PLN';
     if (!st.budget.fx || typeof st.budget.fx !== 'object' || !st.budget.fx.pln) st.budget.fx = null;
     if (!st.budget.rates || typeof st.budget.rates !== 'object') st.budget.rates = {};
+    st.comments = Array.isArray(st.comments) ? st.comments.filter((x) => x && typeof x === 'object' && x.id && typeof x.text === 'string').map((x) => Object.assign({ at: 0, by: '', name: '', ref: 'general', mentions: [], done: false }, x)) : [];
     st.todos = Array.isArray(st.todos) ? st.todos.filter((x) => x && typeof x === 'object').map((x) => Object.assign({ id: uid(), text: '', done: false, due: '', prio: '' }, x)) : [];
     st.crew = (Array.isArray(st.crew) ? st.crew : []).map(migrateCrew);
     st.crew.forEach((c) => {

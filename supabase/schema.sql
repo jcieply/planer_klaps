@@ -72,6 +72,14 @@ create table if not exists public.klaps_blobs (
   payload text not null,
   primary key (project_id, id)
 );
+create table if not exists public.klaps_activity (
+  id bigint generated always as identity primary key,
+  project_id uuid not null references public.klaps_projects(id) on delete cascade,
+  author uuid not null references auth.users(id),
+  at timestamptz not null default now(),
+  payload text not null                       -- zaszyfrowany wpis dziennika zmian („kto, co”)
+);
+create index if not exists klaps_activity_project on public.klaps_activity(project_id, id desc);
 
 -- ---------- pomocnicze (omijają RLS, aby reguły nie wywoływały się w pętli) ----------
 create or replace function public.klaps_role(p_project uuid) returns text
@@ -98,6 +106,7 @@ alter table public.klaps_invites enable row level security;
 alter table public.klaps_ops enable row level security;
 alter table public.klaps_snapshots enable row level security;
 alter table public.klaps_blobs enable row level security;
+alter table public.klaps_activity enable row level security;
 
 drop policy if exists klaps_profiles_read on public.klaps_profiles;
 create policy klaps_profiles_read on public.klaps_profiles for select to authenticated using (public.klaps_shares_project(id));
@@ -113,9 +122,11 @@ drop policy if exists klaps_snapshots_read on public.klaps_snapshots;
 create policy klaps_snapshots_read on public.klaps_snapshots for select to authenticated using (public.klaps_is_member(project_id));
 drop policy if exists klaps_blobs_read on public.klaps_blobs;
 create policy klaps_blobs_read on public.klaps_blobs for select to authenticated using (public.klaps_is_member(project_id));
+drop policy if exists klaps_activity_read on public.klaps_activity;
+create policy klaps_activity_read on public.klaps_activity for select to authenticated using (public.klaps_is_member(project_id));
 
-revoke all on public.klaps_profiles, public.klaps_projects, public.klaps_members, public.klaps_invites, public.klaps_ops, public.klaps_snapshots, public.klaps_blobs from anon, authenticated;
-grant select on public.klaps_profiles, public.klaps_projects, public.klaps_members, public.klaps_invites, public.klaps_ops, public.klaps_snapshots, public.klaps_blobs to authenticated;
+revoke all on public.klaps_profiles, public.klaps_projects, public.klaps_members, public.klaps_invites, public.klaps_ops, public.klaps_snapshots, public.klaps_blobs, public.klaps_activity from anon, authenticated;
+grant select on public.klaps_profiles, public.klaps_projects, public.klaps_members, public.klaps_invites, public.klaps_ops, public.klaps_snapshots, public.klaps_blobs, public.klaps_activity to authenticated;
 
 -- ---------- funkcje (jedyna droga zapisu) ----------
 create or replace function public.klaps_upsert_profile(p_name text, p_position text, p_avatar text, p_color text) returns void
@@ -179,6 +190,20 @@ begin
   if r is null then raise exception 'klaps:not_member'; end if;
   if r not in ('owner', 'editor') then raise exception 'klaps:forbidden'; end if;
   insert into public.klaps_blobs(project_id, id, payload) values (p_project, p_id, p_payload) on conflict do nothing;
+end $$;
+
+create or replace function public.klaps_log_activity(p_project uuid, p_payload text) returns void
+language plpgsql security definer set search_path = public as $$
+declare r text; cutoff bigint;
+begin
+  r := public.klaps_role(p_project);
+  if r is null then raise exception 'klaps:not_member'; end if;
+  if r not in ('owner', 'editor') then raise exception 'klaps:forbidden'; end if;
+  if length(p_payload) > 20000 then raise exception 'klaps:too_big'; end if;
+  insert into public.klaps_activity(project_id, author, payload) values (p_project, auth.uid(), p_payload);
+  -- dziennik trzyma ostatnie 1000 wpisów projektu
+  select id into cutoff from public.klaps_activity where project_id = p_project order by id desc offset 1000 limit 1;
+  if cutoff is not null then delete from public.klaps_activity where project_id = p_project and id <= cutoff; end if;
 end $$;
 
 create or replace function public.klaps_set_title(p_project uuid, p_title_enc text) returns void
@@ -281,7 +306,7 @@ grant execute on function public.klaps_version() to anon, authenticated;
 -- funkcje pomocnicze używane przez reguły RLS wykonują się z uprawnieniami zalogowanego
 grant execute on function public.klaps_role(uuid), public.klaps_is_member(uuid), public.klaps_shares_project(uuid) to authenticated;
 grant execute on function public.klaps_upsert_profile(text, text, text, text), public.klaps_create_project(text, text), public.klaps_push_ops(uuid, text, bigint, text),
-  public.klaps_put_snapshot(uuid, bigint, text), public.klaps_put_blob(uuid, text, text), public.klaps_set_title(uuid, text),
+  public.klaps_put_snapshot(uuid, bigint, text), public.klaps_put_blob(uuid, text, text), public.klaps_log_activity(uuid, text), public.klaps_set_title(uuid, text),
   public.klaps_create_invite(uuid, text, text, text, int, int), public.klaps_revoke_invite(uuid), public.klaps_redeem_invite(text),
   public.klaps_set_role(uuid, uuid, text), public.klaps_remove_member(uuid, uuid), public.klaps_transfer_owner(uuid, uuid),
   public.klaps_delete_project(uuid) to authenticated;

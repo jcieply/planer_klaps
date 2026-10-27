@@ -189,6 +189,22 @@ export async function members(id: string): Promise<Member[]> {
   const rank = { owner: 0, editor: 1, viewer: 2 } as const;
   return (ms || []).map((m) => { const p = by.get(m.user_id) || {}; return { id: m.user_id, name: p.name || T('Użytkownik'), position: p.position || '', avatar: p.avatar || '', color: p.color || colorFor(m.user_id), role: m.role as Role, addedAt: Date.parse(m.added_at) || 0 }; }).sort((a, b) => rank[a.role] - rank[b.role] || a.name.localeCompare(b.name));
 }
+/* ---------- dziennik zmian ---------- */
+export interface ActivityRow { id: number; at: number; by: string; items: string[] }
+export async function logActivity(id: string, entries: Array<{ at: number; items: string[] }>): Promise<void> {
+  const key = await needKey(id);
+  for (const e of entries) await rpc('klaps_log_activity', { p_project: id, p_payload: await encryptJson(key, e) });
+}
+export async function activity(id: string, limit = 200): Promise<ActivityRow[]> {
+  const key = await needKey(id);
+  const rows = await q<any[]>((await client()).from('klaps_activity').select('id,author,at,payload').eq('project_id', id).order('id', { ascending: false }).limit(limit));
+  const out: ActivityRow[] = [];
+  for (const r of rows || []) {
+    try { const e = await decryptJson<{ at: number; items: string[] }>(key, r.payload); out.push({ id: Number(r.id), at: Number(e.at) || Date.parse(r.at), by: r.author, items: Array.isArray(e.items) ? e.items.map(String) : [] }); }
+    catch { /* wpis z innego klucza lub uszkodzony – pomijamy */ }
+  }
+  return out;
+}
 export const setRole = (id: string, user: string, role: 'editor' | 'viewer') => rpc('klaps_set_role', { p_project: id, p_user: user, p_role: role }).then(() => undefined);
 export const removeMember = (id: string, user: string) => rpc('klaps_remove_member', { p_project: id, p_user: user }).then(() => undefined);
 export const transferOwner = (id: string, user: string) => rpc('klaps_transfer_owner', { p_project: id, p_user: user }).then(() => undefined);

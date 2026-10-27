@@ -1,4 +1,5 @@
 /* Powłoka aplikacji: menu boczne (zwijane w zakładkach roboczych), pasek górny, dolne zakładki na telefonie, komunikaty. */
+import { CommentsButton } from './Comments';
 import { desktop } from '../desktop/bridge';
 import { initialsOf, useDesktopProfile } from '../desktop/profile';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -120,6 +121,7 @@ function CollabBar() {
     <span className="collab-av">{cc.peers.slice(0, 6).map((p) => <Tip key={p.id} label={`${p.name}${p.me ? ' (' + T('Ty') + ')' : ''}${p.position ? ' · ' + p.position : ''}${p.tab && TAB_NAME[p.tab] ? ' — ' + T(TAB_NAME[p.tab]) : ''}`}>
       <span className="collab-p" data-user={p.id} style={{ borderColor: p.color }}>{p.avatar ? <img src={p.avatar} alt="" /> : <b style={{ background: p.color }}>{initialsOf(p.name)}</b>}</span></Tip>)}
       {cc.peers.length > 6 && <span className="collab-more">+{cc.peers.length - 6}</span>}</span>
+    <CommentsButton />
   </div>;
 }
 

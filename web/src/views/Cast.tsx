@@ -1,4 +1,5 @@
 /* Obsada: postacie, aktorzy, kontakty, umowy, stawki, diety; łączenie zdublowanych postaci. */
+import { Editing } from './Presence';
 import { useMemo } from 'react';
 import { NewName } from '../components/common';
 import { T } from '../domain/i18n';
@@ -48,7 +49,7 @@ function CastRow({ st, c, idx, open }: { st: ProjectState; c: CastMember; idx: M
     <td style={{ whiteSpace: 'nowrap' }}><div className="rowact">
       {c.diet && c.diet !== 'meat' && <span className="diet-tag" title={Core.dietLabel(c.diet)}>{Core.dietLabel(c.diet, true)}</span>}
       {c.lodging === 'Tak' && <span className="diet-tag lodge" title={T('Nocleg')}>{T('Nocleg')}</span>}
-      <Btn sm v={open ? '' : 'ghost'} act="cast-toggle" data-id={c.id} aria-expanded={open} aria-label={T('Szczegóły: {n}', { n: nm })} onClick={() => setUI((s) => { s.castOpen = s.castOpen.includes(c.id) ? s.castOpen.filter((x) => x !== c.id) : [...s.castOpen, c.id]; })}>{open ? T('Zwiń') : T('Szczegóły')}</Btn>
+      <Editing k="cast" id={c.id} /><Btn sm v={open ? '' : 'ghost'} act="cast-toggle" data-id={c.id} aria-expanded={open} aria-label={T('Szczegóły: {n}', { n: nm })} onClick={() => setUI((s) => { s.castOpen = s.castOpen.includes(c.id) ? s.castOpen.filter((x) => x !== c.id) : [...s.castOpen, c.id]; })}>{open ? T('Zwiń') : T('Szczegóły')}</Btn>
       <ActionSelect className="inp mini" data-act-change="cast-merge" data-id={c.id} label={T('Połącz {n} z inną postacią', { n: c.name })} placeholder={T('Połącz z…')} options={st.cast.filter((o) => o.id !== c.id).map((o) => [String(o.id), `${o.id} ${o.name}`] as [string, string])}
         onPick={(v) => { const to = st.cast.find((o) => o.id === +v); if (!to) return; mutate((x) => { Core.mergeCast(x, c.id, to.id); }); toast(T('Połączono „{a}” z „{b}”.', { a: c.name, b: to.name })); }} />
       <Btn sm v="ghost danger" act="cast-del" data-id={c.id} title={T('Usuń postać ze wszystkich scen')} aria-label={T('Usuń postać ze wszystkich scen')} onClick={() => {

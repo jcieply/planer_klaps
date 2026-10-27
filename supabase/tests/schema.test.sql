@@ -29,6 +29,12 @@ select klaps_test.eq(public.klaps_push_ops(:'pid', 'c1', 1, 'op-a'), 1::bigint, 
 select klaps_test.eq(public.klaps_push_ops(:'pid', 'c1', 2, 'op-b'), 2::bigint, 'drugi numer');
 select klaps_test.eq(public.klaps_push_ops(:'pid', 'c1', 2, 'op-b'), 2::bigint, 'ponowne wysłanie tej samej paczki nie dubluje');
 select klaps_test.eq((select count(*) from public.klaps_ops), 2::bigint, 'dwie zmiany w dzienniku');
+select public.klaps_log_activity(:'pid', 'ENC-LOG-1'); select public.klaps_log_activity(:'pid', 'ENC-LOG-2');
+select klaps_test.eq((select count(*) from public.klaps_activity), 2::bigint, 'dziennik zmian: dwa wpisy');
+select klaps_test.expect_err('insert into public.klaps_activity(project_id, author, payload) values (''' || :'pid' || ''', ''' || :u1 || ''', ''x'')', 'permission denied');
+select klaps_test.expect_err('select public.klaps_log_activity(''' || :'pid' || ''', repeat(''x'', 20001))', 'too_big');
+select public.klaps_log_activity(:'pid', 'x') from generate_series(1, 1005);
+select klaps_test.eq((select count(*) from public.klaps_activity), 1000::bigint, 'dziennik zmian trzyma 1000 ostatnich wpisów');
 -- bezpośrednie zapisy do tabel są zablokowane
 select klaps_test.expect_err('insert into public.klaps_ops(project_id, seq, author, client_id, local_seq, payload) values (''' || :'pid' || ''', 99, ''' || :u1 || ''', ''x'', 1, ''p'')', 'permission denied');
 select klaps_test.expect_err('update public.klaps_members set role = ''owner''', 'permission denied');
@@ -62,9 +68,13 @@ select klaps_test.eq((select role from public.klaps_redeem_invite('SECRETSECRETS
 select klaps_test.expect_err('select public.klaps_push_ops(''' || :'pid' || ''', ''c3'', 1, ''x'')', 'forbidden');
 select klaps_test.expect_err('select public.klaps_put_blob(''' || :'pid' || ''', ''b1'', ''x'')', 'forbidden');
 select klaps_test.eq((select count(*) from public.klaps_ops), 3::bigint, 'podgląd czyta dziennik');
+select klaps_test.expect_err('select public.klaps_log_activity(''' || :'pid' || ''', ''x'')', 'forbidden');
+select klaps_test.eq((select count(*) from public.klaps_activity), 1000::bigint, 'podgląd czyta dziennik zmian');
 
 reset role; select set_config('request.jwt.claim.sub', :u4, false); set role authenticated;
 select klaps_test.eq((select count(*) from public.klaps_ops), 0::bigint, 'osoba spoza projektu nie czyta dziennika');
+select klaps_test.eq((select count(*) from public.klaps_activity), 0::bigint, 'ani dziennika zmian');
+select klaps_test.expect_err('select public.klaps_log_activity(''' || :'pid' || ''', ''x'')', 'not_member');
 select klaps_test.eq((select count(*) from public.klaps_members), 0::bigint, 'ani listy osób');
 select klaps_test.eq((select count(*) from public.klaps_profiles where id = :u1), 0::bigint, 'ani profilu');
 
@@ -123,7 +133,7 @@ reset role; select set_config('request.jwt.claim.sub', :u2, false); set role aut
 select klaps_test.eq(public.klaps_role(:'pid'), 'owner', 'nowy właściciel');
 select public.klaps_delete_project(:'pid');
 reset role;
-select klaps_test.eq((select count(*) from public.klaps_ops) + (select count(*) from public.klaps_members) + (select count(*) from public.klaps_snapshots) + (select count(*) from public.klaps_blobs) + (select count(*) from public.klaps_invites), 0::bigint, 'usunięcie projektu czyści wszystko');
+select klaps_test.eq((select count(*) from public.klaps_ops) + (select count(*) from public.klaps_members) + (select count(*) from public.klaps_snapshots) + (select count(*) from public.klaps_blobs) + (select count(*) from public.klaps_invites) + (select count(*) from public.klaps_activity), 0::bigint, 'usunięcie projektu czyści wszystko');
 -- anonim nie ma dostępu do niczego poza wersją
 set role anon;
 select klaps_test.eq(public.klaps_version(), 1, 'wersja schematu dostępna');

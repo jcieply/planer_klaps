@@ -74,6 +74,18 @@ describe('chmura: konta, projekty, zaproszenia, role, zmiany na żywo', () => {
     expect(ops).not.toContain('poprawiona'); expect(ops).not.toContain('07:30');
     ea1.close(); eb1.close();
   });
+  it('dziennik zmian: wpis jednej osoby czyta druga, serwer widzi tylko szyfrogram', async () => {
+    await a.logActivity(pid, [{ at: Date.now(), items: ['Scena 1: zmieniono (opis)', 'Ujęcie 2: dodano'] }]);
+    await b.logActivity(pid, [{ at: Date.now() + 1, items: ['Kosztorys: zmieniono'] }]);
+    const rows = await b.activity(pid);
+    expect(rows.length).toBe(2);
+    expect(rows[0].items).toEqual(['Kosztorys: zmieniono']);
+    expect(rows[1].items).toEqual(['Scena 1: zmieniono (opis)', 'Ujęcie 2: dodano']);
+    const ms = await a.members(pid);
+    expect(ms.find((m) => m.id === rows[1].by)?.name).toBe(A.name);
+    const raw = await srv.sql(`select string_agg(payload, '|') from klaps_activity`);
+    expect(raw).not.toContain('Scena'); expect(raw).not.toContain('Kosztorys');
+  });
   it('rola „Podgląd” blokuje zapis, a usunięcie osoby odcina dostęp', async () => {
     const bid = (await b.currentUser())!.id;
     await a.setRole(pid, bid, 'viewer');
