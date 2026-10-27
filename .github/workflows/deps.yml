@@ -1,0 +1,26 @@
+name: Pakiety npm (React)
+on:
+  push:
+    branches: [deps]
+permissions:
+  contents: write
+jobs:
+  pack:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Instalacja
+        env: { PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1' }
+        run: npm install --no-audit --no-fund
+      - name: Spakowanie node_modules na gałąź deps-out
+        run: |
+          tar czf nm.tgz node_modules package-lock.json
+          mkdir out && split -b 45m nm.tgz out/nm.tgz.part-
+          ls -la out
+          cd out
+          git init -q -b deps-out
+          git config user.name "klaps-ci"; git config user.email "ci@klaps.local"
+          git add . && git commit -qm "node_modules $(date -u +%F)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" deps-out

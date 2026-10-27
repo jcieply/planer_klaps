@@ -1,0 +1,55 @@
+name: Build iOS (kontrola kompilacji)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install
+      - run: npm test
+      - name: Aplikacja webowa dla iOS
+        run: npm run prepare-ios
+      - name: Projekt Xcode (Capacitor)
+        run: node scripts/ios-setup.js 2>&1 | tee setup.log; test ${PIPESTATUS[0]} -eq 0
+      - name: Kompilacja na symulator (bez podpisu)
+        run: |
+          if [ -d ios/App/App.xcworkspace ]; then SRC="-workspace ios/App/App.xcworkspace"; else SRC="-project ios/App/App.xcodeproj"; fi
+          xcodebuild $SRC -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build 2>&1 | tee xcbuild.log | grep -E "error:|warning: .*deprecated|BUILD (SUCCEEDED|FAILED)" | tail -40
+          test ${PIPESTATUS[0]} -eq 0
+      - name: Log błędu
+        if: failure()
+        run: |
+          L=$( (grep -h -E "error|Error|ERR" setup.log xcbuild.log 2>/dev/null || true) | tail -25 | tr '\n' '|' | tr '%' ' ' | cut -c1-3000)
+          echo "::error::${L:-brak logu}"
+      - name: Aplikacja na symulator (do podglądu)
+        if: success()
+        run: |
+          APP=$(find ~/Library/Developer/Xcode/DerivedData -name "App.app" -path "*iphonesimulator*" | head -1)
+          [ -n "$APP" ] && (cd "$(dirname "$APP")" && zip -qry "$GITHUB_WORKSPACE/Klaps-iOS-Simulator.zip" App.app) || true
+      - name: Uruchomienie na symulatorze iPhone (zrzut ekranu, zapis projektu)
+        if: success()
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; xs=[x for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')]; print(xs[-1]['udid'])")
+          xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
+          APP=$(find ~/Library/Developer/Xcode/DerivedData -name "App.app" -path "*iphonesimulator*" | head -1)
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl launch "$UDID" pl.klaps.planer
+          sleep 25
+          xcrun simctl io "$UDID" screenshot ios-screen.png
+          DATA=$(xcrun simctl get_app_container "$UDID" pl.klaps.planer data)
+          echo "Pliki aplikacji:"; find "$DATA/Documents" -maxdepth 2 | head -20
+          ls "$DATA/Documents/Projekty/"*.klaps.json > /dev/null || { echo "::error::Brak pliku projektu w Documents/Projekty – most natywny nie zapisał projektu"; exit 1; }
+          echo "::notice::Projekt zapisany w Documents/Projekty: $(ls "$DATA/Documents/Projekty")"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Klaps-iOS-Simulator
+          path: |
+            Klaps-iOS-Simulator.zip
+            ios-screen.png
+          if-no-files-found: ignore
