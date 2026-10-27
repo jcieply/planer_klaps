@@ -96,7 +96,7 @@ const Core = (() => {
         linesPerPage: 55, castMode: 'all', maxWorkH: 12, minRestH: 11, docLang: '',
       },
       scenes: [], cast: [], days: [], sites: {}, nextCast: 1,
-      sheets: {}, transport: { vehicles: [], trips: [] }, budget: { items: [], rates: {}, autoRates: true }, todos: [], crew: [], shots: [], media: {},
+      sheets: {}, transport: { vehicles: [], trips: [] }, budget: { items: [], rates: {}, autoRates: true, currency: 'PLN', fx: null }, todos: [], crew: [], shots: [], media: {},
       catering: { cast: true, extra: {} },
     };
   }
@@ -160,7 +160,9 @@ const Core = (() => {
     Object.keys(st.sites).forEach((k) => { st.sites[k] = siteEntry(st.sites[k]); });
     st.sheets = st.sheets || {};
     st.transport = Object.assign({ vehicles: [], trips: [] }, st.transport || {});
-    st.budget = Object.assign({ items: [], rates: {}, autoRates: true }, st.budget || {});
+    st.budget = Object.assign({ items: [], rates: {}, autoRates: true, currency: 'PLN', fx: null }, st.budget || {});
+    if (!CURRENCIES[st.budget.currency]) st.budget.currency = 'PLN';
+    if (!st.budget.fx || typeof st.budget.fx !== 'object' || !st.budget.fx.pln) st.budget.fx = null;
     if (!st.budget.rates || typeof st.budget.rates !== 'object') st.budget.rates = {};
     st.todos = Array.isArray(st.todos) ? st.todos.filter((x) => x && typeof x === 'object').map((x) => Object.assign({ id: uid(), text: '', done: false, due: '', prio: '' }, x)) : [];
     st.crew = (Array.isArray(st.crew) ? st.crew : []).map(migrateCrew);
@@ -286,8 +288,20 @@ const Core = (() => {
     [st.days[i], st.days[j]] = [st.days[j], st.days[i]];
   }
 
+  /** czas zdjęć sceny w minutach: suma czasów ujęć z shotlisty (+ przestawka); bez ujęć z czasem – z liczby ósemek stron */
+  function sceneMinutes(st, sc, o) {
+    o = o || {};
+    const times = shotsOf(st, sc.id).map((x) => etaMin(x.eta));
+    const known = times.filter((t) => t != null);
+    const base = known.length ? known.reduce((a, t) => a + t, 0) : Math.round(sc.eighths * (+o.perEighth || 12));
+    return base + (o.move != null ? +o.move : 15);
+  }
+  /** ile scen z puli nie ma ujęć z czasem (plan z shotlisty policzy je ze stron) */
+  function scenesWithoutEta(st, scenes) {
+    return scenes.filter((sc) => !shotsOf(st, sc.id).some((x) => etaMin(x.eta) != null)).length;
+  }
   function autoPlan(st, o) {
-    o = Object.assign({ strategy: 'site', scope: 'unscheduled', separateNight: true }, o || {});
+    o = Object.assign({ strategy: 'site', scope: 'unscheduled', separateNight: true, basis: 'pages', hours: 8, move: 15, perEighth: 12 }, o || {});
     if (o.scope === 'all') st.days.filter((d) => d.kind === 'shoot').forEach((d) => removeDay(st, d.id));
     const idx = scheduleIndex(st);
     const pool = st.scenes.filter((s) => !idx.has(s.id));
@@ -310,9 +324,10 @@ const Core = (() => {
       ordered = d.concat(n);
     }
     let cur = null, load = 0, cls = null, created = 0;
-    const cap = maxEighths(st.meta);
+    const byShots = o.basis === 'shots';
+    const cap = byShots ? Math.max(30, Math.round((+o.hours || 8) * 60)) : maxEighths(st.meta);
     for (const sc of ordered) {
-      const est = sc.eighths;
+      const est = byShots ? sceneMinutes(st, sc, o) : sc.eighths;
       const c = todClass(sc.tod);
       if (!cur || (load + est > cap && cur.sceneIds.length) || (o.separateNight && c !== cls)) {
         cur = addDay(st, 'shoot', { call: c === 'night' ? st.meta.callNight : st.meta.call });
@@ -424,7 +439,7 @@ const Core = (() => {
   }
 
   /* ---------- plan pracy: harmonogram liczony z czasów trwania ---------- */
-  const BUDGET_CATS = [['pre', T_('Preprodukcja')], ['crew', T_('Ekipa')], ['cast', T_('Obsada')], ['art', T_('Scenografia / kostiumy')], ['gear', T_('Sprzęt zdjęciowy / oświetlenie')], ['transport', T_('Transport / logistyka')], ['post', T_('Postprodukcja')], ['reserve', T_('Rezerwa')]];
+  const BUDGET_CATS = [['pre', T_('Preprodukcja')], ['crew', T_('Ekipa')], ['cast', T_('Obsada')], ['site', T_('Lokacje')], ['art', T_('Scenografia / kostiumy')], ['gear', T_('Sprzęt zdjęciowy / oświetlenie')], ['transport', T_('Transport / logistyka')], ['post', T_('Postprodukcja')], ['reserve', T_('Rezerwa')]];
   const VEHICLE_TYPES = ['Bus', 'Auto osobowe', 'Ciężarówka techniczna', 'Kamper / garderoba', 'Inny'];
   const timeToMin = (t) => { const m = /^(\d{1,2}):(\d{2})$/.exec(t || ''); return m ? (+m[1]) * 60 + (+m[2]) : null; };
   const minToTime = (n) => { n = ((Math.round(n) % 1440) + 1440) % 1440; return pad(Math.floor(n / 60)) + ':' + pad(n % 60); };
@@ -662,7 +677,7 @@ const Core = (() => {
     }).join('\n');
   }
   /* ---------- lokacje: dane obiektu ---------- */
-  const SITE_FIELDS = ['realName', 'address', 'owner', 'ownerContact', 'power', 'toilet', 'camp', 'contract', 'notes'];
+  const SITE_FIELDS = ['realName', 'address', 'owner', 'ownerContact', 'power', 'toilet', 'camp', 'contract', 'rate', 'notes'];
   const siteEntry = (o) => { const x = Object.assign({}, o || {}); SITE_FIELDS.forEach((k) => { if (x[k] == null) x[k] = ''; }); return x; };
   const POWER = [['', T_('Nie ustalono')], ['house', T_('Gniazda domowe 230 V')], ['three', T_('Gniazda siłowe 400 V')], ['both', T_('Domowe i siłowe')], ['generator', T_('Brak prądu – agregat')], ['other', T_('Inne (opis w uwagach)')]];
   const SITE_CONTRACT = [['', T_('Brak informacji')], ['signed', T_('Podpisana')], ['sent', T_('Wysłana do podpisu')], ['negotiation', T_('W trakcie negocjacji')], ['unsigned', T_('Niepodpisana')], ['refused', T_('Odmowa')]];
@@ -787,11 +802,33 @@ const Core = (() => {
   }
 
   const num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(/\s/g, '').replace(',', '.')); return isFinite(n) ? n : 0; };
-  const fmtMoney = (n) => {
+  /* ---------- waluty: kwoty w kosztorysie są w walucie projektu, kursy (PLN za 1 jednostkę) trzyma budget.fx ---------- */
+  const CURRENCIES = { PLN: { sym: 'zł', name: T_('złoty (PLN)') }, EUR: { sym: '€', name: T_('euro (EUR)') }, USD: { sym: '$', name: T_('dolar amerykański (USD)') }, GBP: { sym: '£', name: T_('funt szterling (GBP)') }, CHF: { sym: 'CHF', name: T_('frank szwajcarski (CHF)') }, CZK: { sym: 'Kč', name: T_('korona czeska (CZK)') } };
+  let CUR = 'PLN';
+  const setCurrency = (c) => { CUR = CURRENCIES[c] ? c : 'PLN'; };
+  const fmtMoney = (n, cur) => {
+    cur = CURRENCIES[cur] ? cur : CUR;
     n = Math.round((+n || 0) * 100) / 100; const neg = n < 0; const [i, f] = Math.abs(n).toFixed(2).split('.');
-    if (EN()) return (neg ? '-' : '') + i.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + f + ' PLN';
-    return (neg ? '-' : '') + i.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ',' + f + ' zł';
+    if (EN()) return (neg ? '-' : '') + i.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + f + ' ' + cur;
+    return (neg ? '-' : '') + i.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ',' + f + ' ' + CURRENCIES[cur].sym;
   };
+  /** ile złotych za 1 jednostkę waluty (null, gdy brak kursu) */
+  const plnPer = (st, c) => { if (c === 'PLN') return 1; const v = st && st.budget && st.budget.fx && st.budget.fx.pln && st.budget.fx.pln[c]; return v > 0 ? v : null; };
+  /** przeliczenie kwoty; null, gdy brakuje kursu */
+  function convert(st, amount, from, to) {
+    if (from === to) return amount;
+    const a = plnPer(st, from), b = plnPer(st, to);
+    return a && b ? (amount * a) / b : null;
+  }
+  const fxInfo = (st) => (st.budget && st.budget.fx) || null;
+  /** kursy z tabeli A NBP → { date, pln: { EUR, USD, … } } */
+  function parseNbp(json) {
+    const t = Array.isArray(json) ? json[0] : json;
+    if (!t || !Array.isArray(t.rates)) return null;
+    const pln = {};
+    t.rates.forEach((r) => { if (CURRENCIES[r.code] && r.code !== 'PLN' && r.mid > 0) pln[r.code] = r.mid; });
+    return Object.keys(pln).length ? { date: t.effectiveDate || '', src: 'NBP', pln, manual: false } : null;
+  }
   /* ---------- stawki ekipy i obsady → kosztorys ---------- */
   const RATE_UNITS = { day: [T_('dzień'), T_('dni')], hour: [T_('godz.'), T_('godz.')], week: [T_('tydzień'), T_('tyg.')], month: [T_('miesiąc'), T_('mies.')], project: [T_('ryczałt'), T_('ryczałt')] };
   /** „1 800 zł / dzień”, „12.000,00 zł za projekt”, „150 zł/h” → { amount, unit } */
@@ -808,10 +845,18 @@ const Core = (() => {
     else if (/tydz|tydzie|tyg|week/.test(raw)) unit = 'week';
     else if (/mies|month|\/\s*mc\b/.test(raw)) unit = 'month';
     else if (/projekt|ryczał|ryczal|całość|calosc|całego|film|flat|project|total|łącznie|lacznie|za całość|honorarium/.test(raw)) unit = 'project';
-    return { amount, unit };
+    let cur = null;
+    if (/€|\beur\b|\beuro\b/.test(raw)) cur = 'EUR';
+    else if (/\$|\busd\b|dolar|dollar/.test(raw)) cur = 'USD';
+    else if (/£|\bgbp\b|funt/.test(raw)) cur = 'GBP';
+    else if (/\bchf\b|frank/.test(raw)) cur = 'CHF';
+    else if (/\bczk\b|kč|koron/.test(raw)) cur = 'CZK';
+    else if (/\bpln\b|zł|zl\b|złot/.test(raw)) cur = 'PLN';
+    return { amount, unit, cur };
   }
   /** wyliczone pozycje kosztorysu ze stawek; każda pozycja zna osobę, liczbę dni/godzin i kwotę */
   function rateLines(st) {
+    setCurrency(st.budget && st.budget.currency);
     const rates = (st.budget && st.budget.rates) || {};
     const work = st.days.filter((d) => d.kind !== 'off');
     const hoursOf = (d) => { const t = dayTimes(st, d); return t && t.known && t.work > 0 ? t.work / 60 : 10; };
@@ -827,7 +872,8 @@ const Core = (() => {
     const mk = (kind, id, who, role, contract, rateTxt, days) => {
       const key = kind + ':' + id, r = parseRate(rateTxt), o = rates[key] || {};
       const qty = r ? qtyFor(r.unit, days) : 0;
-      return { key, kind, ref: id, who, role, contract: contract || '', rate: rateTxt || '', parsed: r, days: days.length, qty, est: r ? Math.round(r.amount * qty * 100) / 100 : 0, act: num(o.act), actRaw: o.act == null ? '' : o.act, off: !!o.off };
+      const pc = (st.budget && st.budget.currency) || 'PLN', from = r && r.cur ? r.cur : pc, f = from === pc ? 1 : convert(st, 1, from, pc);
+      return { key, kind, ref: id, who, role, contract: contract || '', rate: rateTxt || '', parsed: r, days: days.length, qty, fxMissing: !!r && f == null, est: r ? Math.round(r.amount * qty * (f == null ? 1 : f) * 100) / 100 : 0, act: num(o.act), actRaw: o.act == null ? '' : o.act, off: !!o.off };
     };
     const out = [];
     st.crew.forEach((c) => { if (!String(c.rate || '').trim() && !String(c.contract || '').trim()) return; out.push(mk('crew', c.id, crewName(c) || T('(bez nazwiska)'), c.role || c.dept || '', c.contract, c.rate, work.filter((d) => crewWorks(c, d)))); });
@@ -835,16 +881,26 @@ const Core = (() => {
     const castDays = new Map();
     shoot.forEach((d) => { dayStats(st, d).castIds.forEach((id) => { if (!castDays.has(id)) castDays.set(id, []); castDays.get(id).push(d); }); });
     st.cast.forEach((c) => { if (!String(c.rate || '').trim() && !String(c.contract || '').trim()) return; out.push(mk('cast', c.id, c.actor || c.name, c.actor ? c.name : '', c.contract, c.rate, castDays.get(c.id) || [])); });
+    // lokacje: stawka za wynajem liczona po dniach zdjęciowych, w których obiekt występuje w planie
+    const siteDays = new Map();
+    shoot.forEach((d) => { dayStats(st, d).sites.forEach((k) => { if (!siteDays.has(k)) siteDays.set(k, []); siteDays.get(k).push(d); }); });
+    Object.keys(st.sites || {}).forEach((k) => {
+      const o = siteEntry(st.sites[k]);
+      if (!String(o.rate || '').trim()) return;
+      out.push(mk('site', k, k, o.realName || '', o.contract ? contractLabel(o.contract) : '', o.rate, siteDays.get(k) || []));
+    });
     return out;
   }
   const rateUnitLabel = (u, many) => T((RATE_UNITS[u] || RATE_UNITS.day)[many ? 1 : 0]);
   /** „5 dni × 1 800,00 zł” */
   function rateFormula(l) {
     if (!l.parsed) return '';
-    if (l.parsed.unit === 'project') return T('ryczałt') + ' ' + fmtMoney(l.parsed.amount);
-    return `${String(l.qty).replace('.', EN() ? '.' : ',')} ${rateUnitLabel(l.parsed.unit, true)} × ${fmtMoney(l.parsed.amount)}`;
+    const own = fmtMoney(l.parsed.amount, l.parsed.cur || undefined);
+    if (l.parsed.unit === 'project') return T('ryczałt') + ' ' + own;
+    return `${String(l.qty).replace('.', EN() ? '.' : ',')} ${rateUnitLabel(l.parsed.unit, true)} × ${own}`;
   }
   function budgetData(st) {
+    setCurrency(st.budget && st.budget.currency);
     const dn = dayNumbers(st), dm = new Map(st.days.map((d) => [d.id, d]));
     const cats = BUDGET_CATS.map(([k, label]) => {
       const items = st.budget.items.filter((i) => i.cat === k).map((i) => {
@@ -867,7 +923,9 @@ const Core = (() => {
       cats.forEach((c) => { c.items = c.items.filter((i) => !(i.auto && i.off)).concat(c.items.filter((i) => i.auto && i.off)); });
     }
     const est = cats.reduce((a, c) => a + c.est, 0), act = cats.reduce((a, c) => a + c.act, 0), dev = cats.reduce((a, c) => a + c.dev, 0);
-    return { cats, est, act, dev };
+    const cur = (st.budget && st.budget.currency) || 'PLN';
+    const conv = ['EUR', 'USD'].filter((c) => c !== cur).map((c) => ({ cur: c, est: convert(st, est, cur, c), act: convert(st, act, cur, c) }));
+    return { cats, est, act, dev, cur, conv };
   }
   function transportData(st, dayId) {
     const dn = dayNumbers(st), vm = new Map(st.transport.vehicles.map((v) => [v.id, v]));
@@ -1078,7 +1136,7 @@ const Core = (() => {
     SITE_FIELDS, siteEntry, POWER, SITE_CONTRACT, powerLabel, contractLabel, contractOpen,
     customRow, sceneRowOf, shotRowOf, sceneDesc, shotsOf, shotEta, sheetScenes, sheetCastIds, locationsText, removeScenes, addMap, removeMap,
     DEPTS, CONTRACTS, DIETS, dietLabel, CAST_FIELDS, newCast: castEntry, newCrew, crewName, crewWorks, toggleCrewDay, setCrewAllDays, crewDefaultDays, deptKey, crewGroups, catering, cateringLine,
-    SHOT_TYPES, etaMin, shotRows, shotDays, nextShotNo, newShot, num, fmtMoney, budgetData, transportData, parseRate, rateLines, rateFormula, rateUnitLabel,
+    SHOT_TYPES, etaMin, sceneMinutes, scenesWithoutEta, shotRows, shotDays, nextShotNo, newShot, num, fmtMoney, CURRENCIES, setCurrency, plnPer, convert, fxInfo, parseNbp, budgetData, transportData, parseRate, rateLines, rateFormula, rateUnitLabel,
     applyImport, renameSite, mergeCast, removeCast, weekdaysOf, lastDate, normName, memoStats, commitState, releaseState,
     DPR_STATUS, dprOf, ensureDpr, dprSceneIds, dprSummary, shotProgress, moveUnshot,
   };

@@ -1,5 +1,5 @@
 /* Typy rdzenia (logika w core.js, przeniesiona z wersji 1.x). */
-import type { CastMember, CrewMember, Day, DayKind, Meta, ProjectState, Scene, Sheet, SheetRow, Shot, Site, Vehicle, Trip, Dpr } from './model';
+import type { Fx, CastMember, CrewMember, Day, DayKind, Meta, ProjectState, Scene, Sheet, SheetRow, Shot, Site, Vehicle, Trip, Dpr } from './model';
 
 export interface DayStats { scenes: Scene[]; eighths: number; sites: string[]; castIds: number[]; mixed: boolean }
 export interface CallRow {
@@ -12,9 +12,9 @@ export interface HoursAlert { type: 'work' | 'rest'; text: string }
 export interface HoursEntry { start: number; end: number | null; work: number | null; known: boolean; alerts: HoursAlert[]; restBefore: number | null; restAfter: number | null; actual?: boolean }
 export interface Lunch { from: string; to: string; dur: number; fromMin: number; label: string }
 export interface SchedPos { dayId: string; dayNo: number | null; idx: number }
-export interface RateLine { key: string; kind: 'crew' | 'cast'; ref: string | number; who: string; role: string; contract: string; rate: string; parsed: { amount: number; unit: string } | null; qty: number; est: number; act: number; actRaw: string; off: boolean; days: Day[] }
-export interface BudgetCat { key: string; label: string; items: any[]; est: number; act: number; dev: number }
-export interface BudgetData { cats: BudgetCat[]; est: number; act: number; dev: number }
+export interface RateLine { key: string; kind: 'crew' | 'cast' | 'site'; ref: string | number; who: string; role: string; contract: string; rate: string; parsed: { amount: number; unit: string; cur: string | null } | null; fxMissing: boolean; qty: number; est: number; act: number; actRaw: string; off: boolean; days: Day[] }
+export interface BudgetCat { key: string; label: string; items: any[]; est: number; act: number; dev: number; cur: string; conv: { cur: string; est: number | null; act: number | null }[] }
+export interface BudgetData { cats: BudgetCat[]; est: number; act: number; dev: number; cur: string; conv: { cur: string; est: number | null; act: number | null }[] }
 export interface CateringDay { id: string; kind: DayKind; tag: string; title: string; date: string; counts: Record<string, number>; crew: number; cast: number; extra: number; total: number; notes: { who: string; diet: string; note: string }[] }
 export interface CateringData { keys: string[]; days: CateringDay[]; sum: Record<string, number>; total: number }
 export interface CrewGroup { key: string; dept: string; list: CrewMember[] }
@@ -45,7 +45,7 @@ export interface CoreApi {
   scheduleIndex(st: ProjectState): Map<string, SchedPos>; dayNumbers(st: ProjectState): Map<string, number | null>;
   unassign(st: ProjectState, ids: string[]): void; assign(st: ProjectState, ids: string[], dayId: string, index?: number | null): void;
   addDay(st: ProjectState, kind: string): Day; recalcDates(st: ProjectState): void; removeDay(st: ProjectState, id: string): void; moveDay(st: ProjectState, id: string, dir: number): void;
-  autoPlan(st: ProjectState, o: { strategy: string; scope: string; separateNight: boolean }): number;
+  autoPlan(st: ProjectState, o: { strategy: string; scope: string; separateNight: boolean; basis?: string; hours?: number; move?: number; perEighth?: number }): number; sceneMinutes(st: ProjectState, sc: Scene, o?: { move?: number; perEighth?: number }): number; scenesWithoutEta(st: ProjectState, scenes: Scene[]): number;
   dayStats(st: ProjectState, d: Day): DayStats; dayWarnings(st: ProjectState, d: Day, hrs?: Map<string, HoursEntry>): string[];
   dood(st: ProjectState): DoodData; reportData(st: ProjectState): ReportData;
   BUDGET_CATS: [string, string][]; VEHICLE_TYPES: string[];
@@ -67,8 +67,8 @@ export interface CoreApi {
   crewGroups(st: { crew: CrewMember[] }): CrewGroup[]; catering(st: ProjectState): CateringData; cateringLine(d: CateringDay): string;
   SHOT_TYPES: [string, string, string][]; etaMin(s: string | null | undefined): number | null; shotRows(st: ProjectState): ShotRowX[]; shotDays(st: ProjectState): Map<string, string[]>;
   nextShotNo(st: ProjectState, sceneId: string): string; newShot(st: ProjectState, sceneId: string): Shot;
-  num(v: unknown): number; fmtMoney(n: number): string; budgetData(st: ProjectState): BudgetData; transportData(st: ProjectState, dayId?: string | null): TransportData;
-  parseRate(s: string): { amount: number; unit: string } | null; rateLines(st: ProjectState): RateLine[]; rateFormula(l: RateLine): string; rateUnitLabel(unit: string, short?: boolean): string;
+  num(v: unknown): number; fmtMoney(n: number, cur?: string): string; budgetData(st: ProjectState): BudgetData; transportData(st: ProjectState, dayId?: string | null): TransportData;
+  parseRate(s: string): { amount: number; unit: string; cur: string | null } | null; CURRENCIES: Record<string, { sym: string; name: string }>; setCurrency(c?: string): void; plnPer(st: ProjectState, c: string): number | null; convert(st: ProjectState, amount: number, from: string, to: string): number | null; fxInfo(st: ProjectState): Fx | null; parseNbp(json: unknown): Fx | null; rateLines(st: ProjectState): RateLine[]; rateFormula(l: RateLine): string; rateUnitLabel(unit: string, short?: boolean): string;
   applyImport(st: ProjectState, parsed: any, o: Opts): void; renameSite(st: ProjectState, from: string, to: string): void;
   mergeCast(st: ProjectState, from: number, to: number): void; removeCast(st: ProjectState, id: number): void;
   weekdaysOf(meta: Meta): number[]; lastDate(st: ProjectState): string; normName(s: string): string;

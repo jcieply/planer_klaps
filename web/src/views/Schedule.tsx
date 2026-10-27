@@ -53,13 +53,13 @@ export function Schedule() {
   </>;
 }
 
-function runAutoplan(ap: { strategy: string; scope: string; separateNight: boolean }) {
+function runAutoplan(ap: { strategy: string; scope: string; separateNight: boolean; basis: string; hours: string; move: string }) {
   let n = 0;
   if (ap.scope === 'all' && getSt().days.some((d) => d.kind === 'shoot')) void snapshotBefore(T_('Przed ułożeniem planu od nowa'));
   mutate((x) => {
     if (ap.scope === 'all') x.days.filter((d) => d.kind === 'shoot').forEach((d) => Core.removeDay(x, d.id));
     Core.recalcDates(x);
-    n = Core.autoPlan(x, { strategy: ap.strategy, scope: 'unscheduled', separateNight: ap.separateNight });
+    n = Core.autoPlan(x, { strategy: ap.strategy, scope: 'unscheduled', separateNight: ap.separateNight, basis: ap.basis, hours: Core.num(ap.hours) || 8, move: ap.move === '' ? 15 : Core.num(ap.move) });
   });
   setUI((s) => { s.autoplan = false; s.calView = 'days'; });
   toast(n ? T('Ułożono {n}.', { n: `${n} ${pl(n, 'dzień zdjęciowy', 'dni zdjęciowe', 'dni zdjęciowych')}` }) : T('Nie było scen do zaplanowania.'));
@@ -69,9 +69,12 @@ function AutoPlan({ st, unsched }: { st: ProjectState; unsched: number }) {
   return <div className="autoplan"><div className="row">
     <Field label={T('Kolejność')}><Select data-act-change="ap-strategy" value={ap.strategy} onChange={(v) => setUI((s) => { s.ap.strategy = v; })} options={[['site', T('Wg obiektów (mniej przejazdów)')], ['script', T('Wg kolejności w scenariuszu')]]} /></Field>
     <Field label={T('Zakres')}><Select data-act-change="ap-scope" value={ap.scope} onChange={(v) => setUI((s) => { s.ap.scope = v; })} options={[['unscheduled', T('Tylko niezaplanowane ({n})', { n: unsched })], ['all', T('Od nowa (zastąpi cały plan)')]]} /></Field>
+    <Field label={T('Podstawa obciążenia dnia')}><Select data-act-change="ap-basis" value={ap.basis} onChange={(v) => setUI((s) => { s.ap.basis = v; })} options={[['pages', T('Strony scenariusza')], ['shots', T('Shotlista (czasy ujęć)')]]} /></Field>
+    {ap.basis === 'shots' && <><Field label={T('Czas zdjęć na dzień (godz.)')}><TextInput value={ap.hours} bind="ap.hours" label={T('Czas zdjęć na dzień (godz.)')} inputMode="decimal" style={{ width: 90 }} onCommit={(v) => setUI((s) => { s.ap.hours = v; })} /></Field>
+      <Field label={T('Przestawka między scenami (min)')}><TextInput value={ap.move} bind="ap.move" label={T('Przestawka między scenami (min)')} inputMode="numeric" style={{ width: 90 }} onCommit={(v) => setUI((s) => { s.ap.move = v; })} /></Field></>}
     <label className="chk"><input type="checkbox" data-act-change="ap-night" checked={ap.separateNight} onChange={(e) => { const c = e.target.checked; setUI((s) => { s.ap.separateNight = c; }); }} /> {T('Osobne dni dla scen nocnych, świtu i zmierzchu')}</label>
     <Btn v="primary" act="autoplan-run" onClick={() => runAutoplan(ap)}>{T('Ułóż plan')}</Btn><Btn act="autoplan-toggle" onClick={() => setUI((s) => { s.autoplan = false; })}>{T('Anuluj')}</Btn></div>
-    <p className="small muted" style={{ margin: '10px 0 0' }}>{ap.scope === 'all' && <span dangerouslySetInnerHTML={{ __html: T('<b>Uwaga:</b> plan od nowa usuwa dni zdjęciowe razem z ich planami pracy i kursami (dni specjalne zostają).') + ' ' }} />}{T('Do jednego dnia trafia najwyżej {n} str. scenariusza (limit zmienisz w ustawieniach). Później przeciągnij sceny, jak chcesz.', { n: +st.meta.pagesPerDay })}</p></div>;
+    <p className="small muted" style={{ margin: '10px 0 0' }}>{ap.scope === 'all' && <span dangerouslySetInnerHTML={{ __html: T('<b>Uwaga:</b> plan od nowa usuwa dni zdjęciowe razem z ich planami pracy i kursami (dni specjalne zostają).') + ' ' }} />}{ap.basis === 'shots' ? T('Do jednego dnia trafia tyle scen, ile mieści się w podanym czasie zdjęć: suma czasów ujęć z shotlisty plus przestawki. Scen bez ujęć z czasem jest teraz: {n} (liczone ze stron, 12 min na ósemkę).', { n: Core.scenesWithoutEta(st, st.scenes.filter((s) => ap.scope === 'all' || !st.days.some((d) => d.sceneIds.includes(s.id)))) }) : T('Do jednego dnia trafia najwyżej {n} str. scenariusza (limit zmienisz w ustawieniach). Później przeciągnij sceny, jak chcesz.', { n: +st.meta.pagesPerDay })}</p></div>;
 }
 
 /* ---------- dni + pula z przeciąganiem ---------- */
@@ -146,7 +149,7 @@ function DaysBoard({ st, unsched, nums, hrs, addDay }: { st: ProjectState; unsch
           ? <ShootDay key={d.id} d={d} i={i} st={st} nums={nums} hrs={hrs} active={active} drop={drop?.zone === 'day:' + d.id ? drop.index : null} overZone={drop?.zone === 'day:' + d.id} />
           : <SpecialDay key={d.id} d={d} i={i} st={st} nums={nums} hrs={hrs} />)
           : <div className="card"><div className="empty"><h3>{T('Nie ma jeszcze dni zdjęciowych')}</h3><p>{T('Dodaj pierwszy dzień i przeciągnij do niego sceny albo pozwól Klapsowi ułożyć plan.')}</p>
-            <div className="row" style={{ justifyContent: 'center' }}>{st.scenes.length > 0 && <Btn v="primary" big act="autoplan-run-first" onClick={() => runAutoplan({ strategy: 'site', scope: 'unscheduled', separateNight: true })}>{T('Ułóż plan automatycznie')}</Btn>}<Btn big act="day-add" icon="plus" onClick={() => addDay('shoot')}>{T('Dodaj dzień')}</Btn></div></div></div>}
+            <div className="row" style={{ justifyContent: 'center' }}>{st.scenes.length > 0 && <Btn v="primary" big act="autoplan-run-first" onClick={() => runAutoplan({ strategy: 'site', scope: 'unscheduled', separateNight: true, basis: 'pages', hours: '8', move: '15' })}>{T('Ułóż plan automatycznie')}</Btn>}<Btn big act="day-add" icon="plus" onClick={() => addDay('shoot')}>{T('Dodaj dzień')}</Btn></div></div></div>}
       </div>
     </div>
     <DragOverlay dropAnimation={{ duration: 180, easing: 'cubic-bezier(.2,.7,.2,1)' }}>{act ? <div className={`mini-strip drag-ghost ${kcls(act)}`}><span className="g"><Icon n="grip" /></span><span className="n">{act.num}</span><div className="t"><b>{act.place || act.site}</b></div><span className="p">{Core.fmtEighths(act.eighths)}</span></div> : null}</DragOverlay>

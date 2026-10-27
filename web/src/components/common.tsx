@@ -18,9 +18,9 @@ export function NoDays({ title }: { title: string }) {
     <div className="row" style={{ justifyContent: 'center' }}><Btn v="primary" big act="day-add-stay" icon="plus" onClick={() => mutate((st) => { Core.addDay(st, 'shoot'); })}>{T('Dodaj dzień zdjęciowy')}</Btn><Btn big act="tab" data-tab="schedule" onClick={() => goTab('schedule')}>{T('Przejdź do kalendarzówki')}</Btn></div></div></div></>;
 }
 /** podpowiedź pod polem stawki: jak stawka trafia do kosztorysu */
-export function RateHint({ st, kind, refId }: { st: ProjectState; kind: 'crew' | 'cast'; refId: string | number }) {
+export function RateHint({ st, kind, refId }: { st: ProjectState; kind: 'crew' | 'cast' | 'site'; refId: string | number }) {
   const l = Core.rateLines(st).find((x: any) => x.kind === kind && String(x.ref) === String(refId));
-  if (!l || !String(l.rate).trim()) return <span className="rate-hint muted">{T('Wpisz kwotę i jednostkę, np. 900 zł / dzień, 150 zł / h, 12 000 zł / projekt.')}</span>;
+  if (!l || !String(l.rate).trim()) return <span className="rate-hint muted">{kind === 'site' ? T('Wpisz stawkę za wynajem, np. 2 000 zł / dzień albo 8 000 zł / projekt. Liczy się po dniach, w których obiekt jest w planie.') : T('Wpisz kwotę i jednostkę, np. 900 zł / dzień, 150 zł / h, 12 000 zł / projekt.')}</span>;
   if (!l.parsed) return <span className="rate-hint warn-t">{T('Nie rozpoznano kwoty – pozycja nie trafi do kosztorysu.')}</span>;
   return <span className="rate-hint">{Core.rateFormula(l)} = <b>{Core.fmtMoney(l.est)}</b> {T('w kosztorysie')}{l.off || st.budget.autoRates === false ? ' (' + T('pominięte') + ')' : ''}</span>;
 }

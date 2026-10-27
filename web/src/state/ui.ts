@@ -16,7 +16,7 @@ export interface UIState {
   calView: 'days' | 'month';
   month: string | null;
   autoplan: boolean;
-  ap: { strategy: string; scope: string; separateNight: boolean };
+  ap: { strategy: string; scope: string; separateNight: boolean; basis: string; hours: string; move: string };
   settings: boolean;
   confirmDel: boolean;
   imp: ImpState;
@@ -51,7 +51,7 @@ const initial: UIState = {
   tab: 'home', drawer: null, sel: [],
   f: { q: '', ie: '', tod: '', cast: '', site: '', plan: '' },
   pool: { q: '', sort: 'script' },
-  calView: 'days', month: null, autoplan: false, ap: { strategy: 'site', scope: 'unscheduled', separateNight: true },
+  calView: 'days', month: null, autoplan: false, ap: { strategy: 'site', scope: 'unscheduled', separateNight: true, basis: 'pages', hours: '8', move: '15' },
   settings: false, confirmDel: false, imp: { status: 'idle' }, paste: false, pasteText: '',
   exp: { calendar: true, board: true, shotlist: true, cast: true, crew: true, catering: true, sites: true, dood: true, callsheet: true, dpr: true, transport: true, budget: true },
   csDay: null, trDay: '', crewOpen: [], castOpen: [], siteOpen: [], crewF: { q: '', dept: '' }, shF: { scene: '' }, crewView: 'list', csPick: false,

@@ -41,6 +41,7 @@ const Reports = (() => {
 
   /* ============================== PDF ============================== */
   async function buildPdf(st, sections, opts) {
+    Core.setCurrency(st.budget && st.budget.currency);
     opts = opts || {};
     await loadFonts();
     if (docLang(st, opts) === 'en') await ensureEn();
@@ -398,6 +399,10 @@ const Reports = (() => {
         col += span;
       });
       ctx.y += rowMax + 4;
+      if (sh.contacts.length) {
+        subhead(T('Ważne kontakty'));
+        table([{ w: 150, bold: true }, { w: 200 }, { w: CW - 350 }], sh.contacts.map((c) => ({ cells: [c.role, c.name, c.phone] })), { header: H(['Funkcja', 'Imię i nazwisko', 'Telefon']), vlines: true, keep: 20 });
+      }
       subhead(T('Harmonogram dnia'));
       const rows = [];
       crows.forEach((r) => {
@@ -426,10 +431,6 @@ const Reports = (() => {
           trips.map((t) => ({ cells: [t.time, t.vehicle ? t.vehicle.name : '', t.vehicle ? [t.vehicle.driver, t.vehicle.phone].filter(Boolean).join(' ') : '', t.from, t.to, t.who, t.note] })),
           { header: H(['Godz.', 'Pojazd', 'Kierowca', 'Skąd', 'Dokąd', 'Kto / co', 'Uwagi']), vlines: true, keep: 20 });
         if (sh.transportNote) textBlock(sh.transportNote, { size: 8.5 });
-      }
-      if (sh.contacts.length) {
-        subhead(T('Ważne kontakty'));
-        table([{ w: 150, bold: true }, { w: 200 }, { w: CW - 350 }], sh.contacts.map((c) => ({ cells: [c.role, c.name, c.phone] })), { header: H(['Funkcja', 'Imię i nazwisko', 'Telefon']), vlines: true, keep: 20 });
       }
       if (sh.cameraNotes) { subhead(T('Elementy kamerowe')); textBlock(sh.cameraNotes, { size: 8.5 }); }
       const notes = [d.note, sh.notes].filter(Boolean).join('\n');
@@ -562,6 +563,8 @@ const Reports = (() => {
       const srows = bd.cats.map((c) => ({ cells: [c.label, money(c.est), c.act ? money(c.act) : '—', diff(c.dev, c.act), bd.est ? Math.round((c.est / bd.est) * 100) + '%' : '—'] }));
       srows.push({ cells: [T('RAZEM'), money(bd.est), bd.act ? money(bd.act) : '—', diff(bd.dev, bd.act), bd.est ? '100%' : '—'], bg: C.band, bold: true });
       table([{ w: 330, bold: true }, { w: 130, align: 'right' }, { w: 130, align: 'right' }, { w: 120, align: 'right' }, { w: 76, align: 'center' }], srows, { header: H(['Pion', 'Planowany', 'Rzeczywisty', 'Różnica', 'Udział']), vlines: true, keep: 20 });
+      const fxs = bd.conv.filter((x) => x.est != null);
+      if (fxs.length) { const fi = Core.fxInfo(st); textBlock(T('Przeliczenie planu:') + ' ' + fxs.map((x) => Core.fmtMoney(x.est, x.cur)).join('  ·  ') + (fi ? '  (' + T('kursy {s} z dnia {d}', { s: fi.src || 'NBP', d: fi.date || '—' }) + ')' : ''), { size: 7.8, color: C.mute }); }
       textBlock(T('Różnica = koszt rzeczywisty minus planowany, liczona tylko dla pozycji z wpisanym kosztem rzeczywistym (wartość dodatnia oznacza przekroczenie).'), { size: 7.2, color: C.mute });
       bd.cats.filter((c) => c.items.length).forEach((c) => {
         subhead(c.label);
@@ -585,6 +588,7 @@ const Reports = (() => {
   const BORDER = { all: 'thin', color: 'C3CAD0' };
 
   async function buildXlsx(st, sections, opts) {
+    Core.setCurrency(st.budget && st.budget.currency);
     if (docLang(st, opts || {}) === 'en') await ensureEn();
     opts = opts || {};
     const wb = I18N.withLang(docLang(st, opts), () => composeXlsx(st, sections || SECTIONS.map((s) => s[0]), opts));
@@ -945,6 +949,12 @@ const Reports = (() => {
         r++;
         const section = (t) => { for (let c = 1; c <= N; c++) sh.set(r, c, null, { bg: '26323B' }); sh.set(r, 1, t.toUpperCase(), { b: true, color: 'FFFFFF', bg: '26323B', sz: 10 }); sh.merge(r, 1, r, N); sh.rowHeight(r, 18); r++; };
         const head = (arr, spans) => { let c = 1; arr.forEach((h, i) => { sh.set(r, c, h, hStyle); const sp = (spans && spans[i]) || 1; for (let k = 1; k < sp; k++) sh.set(r, c + k, null, hStyle); if (sp > 1) sh.merge(r, c, r, c + sp - 1); c += sp; }); r++; };
+        if (cs.contacts.length) {
+          section(T('Ważne kontakty'));
+          head(H(['Funkcja', 'Imię i nazwisko', 'Telefon']), [3, 3, 3]);
+          cs.contacts.forEach((c) => { const b = { border: BORDER, wrap: true }; [c.role, c.name, c.phone].forEach((v, i) => { sh.set(r, 1 + i * 3, v, Object.assign({}, b, { b: i === 0 })); sh.set(r, 2 + i * 3, null, b); sh.set(r, 3 + i * 3, null, b); sh.merge(r, 1 + i * 3, r, 3 + i * 3); }); r++; });
+          r++;
+        }
         section(T('Harmonogram dnia'));
         head(H(['Od', 'Do', 'Czas', 'Sc.', 'Ujęcie', 'Opis / plan', 'Obsada', 'Elementy kamerowe', 'Uwagi']));
         crows.forEach((x) => {
@@ -989,12 +999,6 @@ const Reports = (() => {
             sh.set(r, 8, [t.who, t.note].filter(Boolean).join(' · '), b); sh.set(r, 9, null, b); sh.merge(r, 8, r, 9);
             r++;
           });
-          r++;
-        }
-        if (cs.contacts.length) {
-          section(T('Ważne kontakty'));
-          head(H(['Funkcja', 'Imię i nazwisko', 'Telefon']), [3, 3, 3]);
-          cs.contacts.forEach((c) => { const b = { border: BORDER, wrap: true }; [c.role, c.name, c.phone].forEach((v, i) => { sh.set(r, 1 + i * 3, v, Object.assign({}, b, { b: i === 0 })); sh.set(r, 2 + i * 3, null, b); sh.set(r, 3 + i * 3, null, b); sh.merge(r, 1 + i * 3, r, 3 + i * 3); }); r++; });
           r++;
         }
         if (cs.transportNote) { section(T('Transport – informacje')); sh.set(r, 1, cs.transportNote, { wrap: true, v: 'top' }); sh.merge(r, 1, r, N); r += 2; }
@@ -1075,7 +1079,7 @@ const Reports = (() => {
     /* --- Kosztorys --- */
     if (sections.includes('budget')) {
       const bd = Core.budgetData(st);
-      const MF = I18N.lang === 'en' ? '#,##0.00 "PLN"' : '#,##0.00 "zł"';
+      const MF = '#,##0.00 "' + (I18N.lang === 'en' ? bd.cur : Core.CURRENCIES[bd.cur].sym) + '"';
       const kname = sheetName('Kosztorys');
       const ref = `'${kname.replace(/'/g, "''")}'`;
       const sh = wb.addSheet(kname, { tab: 'B5651D', freeze: { row: 5 } });
@@ -1112,6 +1116,13 @@ const Reports = (() => {
       const grand = r;
       r += 2;
       sh.set(r, 1, T('Różnica = koszt rzeczywisty minus planowany, tylko dla pozycji z wpisanym kosztem rzeczywistym (dodatnia = przekroczenie).'), { sz: 9, color: '5C6670' });
+      bd.conv.filter((x) => x.est != null).forEach((x) => {
+        r += 1;
+        const fm = '#,##0.00 "' + (I18N.lang === 'en' ? x.cur : Core.CURRENCIES[x.cur].sym) + '"', k = Core.plnPer(st, bd.cur) / Core.plnPer(st, x.cur);
+        sh.set(r, 1, T('Plan po przeliczeniu na {c}', { c: x.cur }), { b: true });
+        sh.set(r, 5, { f: `E${grand}*${k}`, v: x.est }, { b: true, fmt: fm });
+        sh.set(r, 6, { f: `F${grand}*${k}`, v: x.act }, { b: true, fmt: fm });
+      });
       const ss = wb.addSheet(sheetName('Budżet – podsumowanie'), { tab: 'B5651D' });
       [36, 18, 18, 18, 12].forEach((w, i) => ss.colWidth(i + 1, w));
       titleBlock(ss, 5, T('BUDŻET – PODSUMOWANIE PIONÓW'));

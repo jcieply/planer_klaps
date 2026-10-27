@@ -1,9 +1,9 @@
 /* DOOD, Transport, Kosztorys, Eksport. */
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { T } from '../domain/i18n';
 import { Core } from '../domain/core';
 import { Reports } from '../domain/reports';
-import type { BudgetItem, Trip, Vehicle } from '../domain/model';
+import type { BudgetItem, ProjectState, Trip, Vehicle } from '../domain/model';
 import { mutate, useProject } from '../state/project';
 import { goTab, setUI, useUI } from '../state/ui';
 import { usePrefs } from '../state/prefs';
@@ -11,6 +11,7 @@ import { doExport, exportProjectFile, exportProjectJson, importProjectFile } fro
 import { plN, sitesList, workOptions } from '../lib/format';
 import { BlurInput, Btn, Datalist, ExportBtns, Field, Icon, PageHead, Select, Stat, TextInput, TimeInput, cx } from '../components/ui';
 import { NoDays } from '../components/common';
+import { fetchRates, fxStale } from '../lib/fx';
 
 /* ================= DOOD ================= */
 export function Dood() {
@@ -69,19 +70,51 @@ export function Transport() {
 /* ================= KOSZTORYS ================= */
 const updBud = (id: string, k: keyof BudgetItem, v: string) => mutate((x) => { const b = x.budget.items.find((y) => y.id === id); if (b) (b as any)[k] = v; });
 function gotoRate(kind: string, ref: string) {
-  if (kind === 'cast') setUI((s) => { if (!s.castOpen.includes(+ref)) s.castOpen.push(+ref); s.tab = 'cast'; });
+  if (kind === 'site') setUI((s) => { if (!s.siteOpen.includes(ref)) s.siteOpen.push(ref); s.tab = 'sites'; });
+  else if (kind === 'cast') setUI((s) => { if (!s.castOpen.includes(+ref)) s.castOpen.push(+ref); s.tab = 'cast'; });
   else setUI((s) => { if (!s.crewOpen.includes(ref)) s.crewOpen.push(ref); s.crewView = 'list'; s.crewF = { q: '', dept: '' }; s.tab = 'crew'; });
   setTimeout(() => { const el = document.querySelector<HTMLInputElement>(`[data-bind="${kind}.rate"][data-id="${ref}"]`); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.focus({ preventScroll: true }); } }, 120);
+}
+/** waluta projektu, kursy NBP (albo własne) i przeliczenie kwot po zmianie waluty */
+function CurrencyBox({ st }: { st: ProjectState }) {
+  const cur = st.budget.currency || 'PLN', fx = st.budget.fx;
+  const [busy, setBusy] = useState(false), [err, setErr] = useState(''), [from, setFrom] = useState('');
+  const load = async (force: boolean) => {
+    if (busy || (!force && !fxStale(st))) return;
+    setBusy(true); setErr('');
+    try { const n = await fetchRates(); mutate((x) => { if (!x.budget.fx || x.budget.fx.manual === false || force || x.budget.fx.date !== n.date) x.budget.fx = n; }); }
+    catch { setErr(T('Nie udało się pobrać kursów. Wpisz je ręcznie albo spróbuj później.')); }
+    setBusy(false);
+  };
+  useEffect(() => { if (typeof navigator === 'undefined' || navigator.onLine !== false) void load(false); /* raz po wejściu */ }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const rateOf = (c: string) => (fx && fx.pln[c]) || '';
+  const setRate = (c: string, v: string) => mutate((x) => { const n = Core.num(v); if (!(n > 0)) return; const b = x.budget.fx || { date: '', src: '', pln: {}, manual: true }; b.pln[c] = n; b.manual = true; b.src = T('własne'); x.budget.fx = b; });
+  const change = (c: string) => { if (c === cur) return; setFrom(cur); mutate((x) => { x.budget.currency = c; }); };
+  const convertAll = () => { const f = from, to = cur; const r = (v: any) => { const n = Core.num(v); if (!n) return v; const k = Core.convert(st, n, f, to); return k == null ? v : String(Math.round(k * 100) / 100); };
+    mutate((x) => { x.budget.items.forEach((i) => { i.est = r(i.est); i.act = r(i.act); }); Object.values(x.budget.rates).forEach((o: any) => { if (o.act != null) o.act = r(o.act); }); }); setFrom(''); };
+  const canConv = !!from && from !== cur && Core.convert(st, 1, from, cur) != null;
+  const others = Object.keys(Core.CURRENCIES).filter((c) => c !== 'PLN');
+  return <div className="card rate-box" style={{ marginBottom: 16 }}><div className="card-b">
+    <div className="row" style={{ justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+      <label className="field" style={{ minWidth: 220 }}><span>{T('Waluta kosztorysu')}</span>
+        <Select value={cur} bind="bud.currency" label={T('Waluta kosztorysu')} options={Object.entries(Core.CURRENCIES).map(([k, v]: [string, any]) => [k, T(v.name)] as [string, string])} onChange={change} /></label>
+      <span className="muted small" style={{ flex: 1, minWidth: 220 }}>{fx ? T('Kursy: {s} z dnia {d}. W stawkach możesz wpisać inną walutę (np. 300 € / dzień) – zostanie przeliczona.', { s: fx.src || 'NBP', d: fx.date || '—' }) : T('Brak kursów. Pobierz je, aby przeliczać waluty.')}</span>
+      <Btn sm act="fx-refresh" disabled={busy} onClick={() => void load(true)}>{busy ? T('Pobieranie…') : T('Pobierz kursy NBP')}</Btn></div>
+    {err && <div className="notice warn" style={{ marginTop: 10 }}><div><Icon n="warn" /></div><div>{err}</div></div>}
+    {canConv && <div className="notice" style={{ marginTop: 10 }}><div><Icon n="warn" /></div><div>{T('Zmieniono walutę z {a} na {b}. Kwoty wpisane ręcznie nadal mają starą wartość liczbową.', { a: from, b: cur })} <Btn sm act="fx-convert" onClick={convertAll}>{T('Przelicz kwoty na {b}', { b: cur })}</Btn> <Btn sm v="ghost" act="fx-keep" onClick={() => setFrom('')}>{T('Zostaw bez zmian')}</Btn></div></div>}
+    <details style={{ marginTop: 10 }}><summary className="small muted" style={{ cursor: 'pointer' }}>{T('Kursy (zł za 1 jednostkę) – można poprawić ręcznie')}</summary>
+      <div className="fgrid" style={{ marginTop: 8 }}>{others.map((c) => <label className="field" key={c}><span>1 {c} =</span><BlurInput className="amt" inputMode="decimal" value={rateOf(c)} bind="fx.rate" bid={c} label={T('Kurs') + ' ' + c} onCommit={(v) => setRate(c, v)} /></label>)}</div></details>
+  </div></div>;
 }
 export function Budget() {
   const st = useProject((s) => s.st)!;
   const lang = usePrefs((p) => p.lang);
   const bd = Core.budgetData(st), dayOpts: [string, string][] = [['', '—'], ...workOptions(st)], siteOpts: [string, string][] = [['', '—'], ...sitesList(st).map((x) => [x, x] as [string, string])];
-  const total = bd.est || 0, over = bd.act && bd.dev > 0, cur = lang === 'en' ? 'PLN' : 'zł';
+  const total = bd.est || 0, over = bd.act && bd.dev > 0, cur = lang === 'en' ? bd.cur : (Core.CURRENCIES[bd.cur] || { sym: 'zł' }).sym;
   const lines = Core.rateLines(st), noRate = lines.filter((l: any) => !l.parsed), autoOn = st.budget.autoRates !== false;
   const nAuto = lines.filter((l: any) => l.parsed && !l.off).length, sumAuto = lines.filter((l: any) => l.parsed && !l.off).reduce((a: number, l: any) => a + l.est, 0);
   const autoRow = (i: any) => { const l = i.line; return <tr key={l.key} className={cx('auto-row', i.off && 'is-off')}><td style={{ minWidth: 200 }}><div className="auto-name"><span className="auto-tag" title={T('Pozycja liczona automatycznie ze stawki i dni pracy')}><Icon n="link" /></span><span><b>{l.who}</b>{l.role ? <> <span className="muted">– {l.role}</span></> : null}<small>{Core.rateFormula(l)}{l.contract ? ' · ' + l.contract : ''}</small></span></div></td>
-    <td className="num muted small">{l.parsed.unit === 'project' ? T('ryczałt') : String(l.qty).replace('.', ',') + ' ' + Core.rateUnitLabel(l.parsed.unit, true)}</td><td className="muted small">{l.kind === 'cast' ? T('Obsada') : T('Ekipa')}</td>
+    <td className="num muted small">{l.parsed.unit === 'project' ? T('ryczałt') : String(l.qty).replace('.', ',') + ' ' + Core.rateUnitLabel(l.parsed.unit, true)}</td><td className="muted small">{l.kind === 'cast' ? T('Obsada') : l.kind === 'site' ? T('Lokacje') : T('Ekipa')}</td>
     <td className="num" style={{ textAlign: 'right', width: 120 }}><b>{i.off ? '—' : Core.fmtMoney(l.est)}</b></td>
     <td style={{ width: 120 }}>{!i.off && <BlurInput className="amt" inputMode="decimal" placeholder="0,00" value={l.actRaw} bind="bud.ract" bid={l.key} label={T('Koszt rzeczywisty') + ' – ' + l.who} onCommit={(v) => mutate((x) => { const r = (x.budget.rates[l.key] = x.budget.rates[l.key] || {}); if (v.trim() === '') delete r.act; else r.act = v; })} />}</td>
     <td className="num" style={{ textAlign: 'right', width: 110, ...(!i.off && l.act && l.act > l.est ? { color: 'var(--bad)' } : {}) }}>{!i.off && l.act ? Core.fmtMoney(l.act - l.est) : '—'}</td>
@@ -97,10 +130,12 @@ export function Budget() {
   return <>
     <PageHead title={T('Kosztorys')} sub={T('Budżet podzielony na piony produkcyjne. Wpisz koszt planowany, a po zakupie rzeczywisty. Sumy liczą się same. Pozycję możesz powiązać z dniem zdjęciowym lub obiektem.')}
       right={<ExportBtns prefix="bud-export" enabled={st.budget.items.length > 0 || nAuto > 0} onPdf={() => doExport('pdf', ['budget'], 'kosztorys')} onXlsx={() => doExport('xlsx', ['budget'], 'kosztorys')} />} />
-    <div className="card rate-box" style={{ marginBottom: 16 }}><div className="card-b row" style={{ justifyContent: 'space-between' }}><label className="chk"><input type="checkbox" data-act-change="bud-auto" checked={autoOn} onChange={(e) => { const c = e.target.checked; mutate((x) => { x.budget.autoRates = c; }); }} /> <span><b>{T('Stawki ekipy i obsady w kosztorysie')}</b><br /><span className="muted small">{T('Stawka × dni pracy z kalendarzówki trafia do pionów Ekipa i Obsada. Zmiana stawki lub dni od razu zmienia kosztorys.')}</span></span></label>
+    <CurrencyBox st={st} />
+    <div className="card rate-box" style={{ marginBottom: 16 }}><div className="card-b row" style={{ justifyContent: 'space-between' }}><label className="chk"><input type="checkbox" data-act-change="bud-auto" checked={autoOn} onChange={(e) => { const c = e.target.checked; mutate((x) => { x.budget.autoRates = c; }); }} /> <span><b>{T('Stawki ekipy, obsady i lokacji w kosztorysie')}</b><br /><span className="muted small">{T('Stawka × dni pracy z kalendarzówki trafia do pionów Ekipa, Obsada i Lokacje. Zmiana stawki lub dni od razu zmienia kosztorys.')}</span></span></label>
       {autoOn && <span className="chip acc">{T('{n} pozycji ze stawek · {s}', { n: nAuto, s: Core.fmtMoney(sumAuto) })}</span>}</div>
       {autoOn && noRate.length > 0 && <div className="notice warn" style={{ margin: '0 16px 14px' }}><div><Icon n="warn" /></div><div>{T('Bez kwoty w stawce (nie trafiają do kosztorysu):')} {noRate.map((l: any) => <button type="button" key={l.key} className="numlink" data-act="rate-goto" data-kind={l.kind} data-id={String(l.ref)} onClick={() => gotoRate(l.kind, String(l.ref))}>{l.who}</button>)}</div></div>}</div>
-    <div className="card" style={{ marginBottom: 16 }}><div className="card-b"><div className="stats"><Stat v={Core.fmtMoney(bd.est)} l={T('planowany')} /><Stat v={bd.act ? Core.fmtMoney(bd.act) : '—'} l={T('rzeczywisty')} /><Stat v={bd.act ? Core.fmtMoney(bd.dev) : '—'} l={T('różnica na rozliczonych pozycjach')} style={over ? { color: 'var(--bad)' } : undefined} /><Stat v={bd.cats.reduce((a: number, c: any) => a + c.items.length, 0)} l={T('pozycji')} /></div></div>
+    <div className="card" style={{ marginBottom: 16 }}><div className="card-b"><div className="stats"><Stat v={Core.fmtMoney(bd.est)} l={T('planowany')} /><Stat v={bd.act ? Core.fmtMoney(bd.act) : '—'} l={T('rzeczywisty')} /><Stat v={bd.act ? Core.fmtMoney(bd.dev) : '—'} l={T('różnica na rozliczonych pozycjach')} style={over ? { color: 'var(--bad)' } : undefined} /><Stat v={bd.cats.reduce((a: number, c: any) => a + c.items.length, 0)} l={T('pozycji')} /></div>
+      {bd.conv.length > 0 && <div className="row" style={{ marginTop: 10, gap: 8, flexWrap: 'wrap' }}>{bd.conv.map((x: any) => x.est == null ? <span key={x.cur} className="chip">{x.cur}: {T('brak kursu')}</span> : <span key={x.cur} className="chip" data-fx={x.cur}>≈ {Core.fmtMoney(x.est, x.cur)}{x.act ? ' · ' + T('rzecz.') + ' ' + Core.fmtMoney(x.act, x.cur) : ''}</span>)}</div>}</div>
       <div className="tbl-wrap" style={{ border: 0, borderTop: '1px solid var(--line-2)', borderRadius: '0 0 10px 10px' }}><table className="tbl"><thead><tr><th>{T('Pion')}</th><th style={{ textAlign: 'right' }}>{T('Planowany')}</th><th style={{ textAlign: 'right' }}>{T('Rzeczywisty')}</th><th style={{ textAlign: 'right' }}>{T('Różnica')}</th><th>{T('Udział w budżecie')}</th></tr></thead>
         <tbody>{bd.cats.map((c: any) => <tr key={c.key}><td><b>{c.label}</b></td><td className="num" style={{ textAlign: 'right' }}>{Core.fmtMoney(c.est)}</td><td className="num" style={{ textAlign: 'right' }}>{c.act ? Core.fmtMoney(c.act) : '—'}</td><td className="num" style={{ textAlign: 'right', ...(c.act && c.dev > 0 ? { color: 'var(--bad)', fontWeight: 600 } : {}) }}>{c.act ? Core.fmtMoney(c.dev) : '—'}</td>
           <td style={{ minWidth: 120 }}><div className="load" style={{ background: 'var(--surface-3)' }}><i style={{ width: (total ? Math.round((c.est / total) * 100) : 0) + '%', background: 'var(--accent)' }} /></div><span className="muted small">{total ? Math.round((c.est / total) * 100) : 0}%</span></td></tr>)}</tbody></table></div></div>

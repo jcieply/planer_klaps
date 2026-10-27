@@ -6,7 +6,7 @@ import { mutate, useProject } from '../state/project';
 import { setUI, useUI } from '../state/ui';
 import { doExport } from '../state/actions';
 import { BlurInput, Btn, ExportBtns, Field, Icon, PageHead, Select, Stat, TextArea, TextInput, cx } from '../components/ui';
-import { NewName } from '../components/common';
+import { NewName, RateHint } from '../components/common';
 import { localityOf } from '../lib/weather';
 
 const contractCls = (k: string) => (!k ? 'none' : k === 'signed' ? 'ok' : k === 'sent' || k === 'negotiation' ? 'warn' : 'bad');
@@ -47,6 +47,7 @@ function SiteRow({ st, x, open }: { st: ProjectState; x: any; open: boolean }) {
   const fld = (label: string, key: string, ph: string, mode?: any) => <Field label={label}>{inp(key, ph, label, mode)}</Field>;
   return <>{main}<tr className="crew-det site-det"><td colSpan={8}><div className="fgrid">
     {fld(T('Właściciel / osoba kontaktowa'), 'owner', T('imię i nazwisko, funkcja'))}{fld(T('Kontakt do właściciela'), 'ownerContact', T('telefon, e-mail'), 'tel')}
+    <Field label={T('Stawka za wynajem lokacji')}>{inp('rate', T('np. 2 000 zł / dzień'), T('Stawka za wynajem lokacji'))}<RateHint st={st} kind="site" refId={id} /></Field>
     <Field label={T('Zasilanie na miejscu')}><Select value={info.power} bind="site.power" bid={id} label={T('Zasilanie na miejscu') + ' – ' + name} options={Core.POWER.map(([k, l]: [string, string]) => [k, T(l)])} onChange={(v) => updSite(id, 'power', v)} /></Field>
     <Field label={T('Miejscowość lub współrzędne do prognozy pogody')}><TextInput value={info.geoQuery || ''} placeholder={localityOf(info.address) || T('np. Zakopane albo 49.30, 19.95')} bind="site.geoQuery" bid={id} label={T('Miejscowość do prognozy') + ' – ' + name} onCommit={(v) => mutate((x) => { const o = x.sites[id] = x.sites[id] || Core.siteEntry(); o.geoQuery = v; o.geo = null; })} />
       <span className="small muted">{info.geo ? T('Pogoda dla: {p}', { p: info.geo.label }) : T('Puste pole = miejscowość z adresu.')}</span></Field>

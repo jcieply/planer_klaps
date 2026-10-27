@@ -1477,3 +1477,37 @@ I18N.add({
 "Konto z tym adresem już istnieje – zaloguj się.": "An account with this address already exists – sign in.",
 "Potwierdź adres e-mail (link w wiadomości) i zaloguj się ponownie.": "Confirm your e-mail address (link in the message) and sign in again."
 });
+I18N.add({
+"Wpisz stawkę za wynajem, np. 2 000 zł / dzień albo 8 000 zł / projekt. Liczy się po dniach, w których obiekt jest w planie.": "Enter the rental rate, e.g. 2,000 / day or 8,000 / project. It is counted for the days the site appears in the schedule.",
+"Stawki ekipy, obsady i lokacji w kosztorysie": "Crew, cast and location rates in the budget",
+"Stawka × dni pracy z kalendarzówki trafia do pionów Ekipa, Obsada i Lokacje. Zmiana stawki lub dni od razu zmienia kosztorys.": "Rate × working days from the schedule goes to the Crew, Cast and Locations sections. Changing a rate or the days updates the budget at once.",
+"Stawka za wynajem lokacji": "Location rental rate",
+"np. 2 000 zł / dzień": "e.g. 2,000 / day"
+});
+I18N.add({
+"złoty (PLN)": "Polish złoty (PLN)", "euro (EUR)": "euro (EUR)", "dolar amerykański (USD)": "US dollar (USD)", "funt szterling (GBP)": "pound sterling (GBP)", "frank szwajcarski (CHF)": "Swiss franc (CHF)", "korona czeska (CZK)": "Czech koruna (CZK)",
+"Nie udało się pobrać kursów. Wpisz je ręcznie albo spróbuj później.": "Could not download the rates. Enter them by hand or try again later.",
+"własne": "custom",
+"Waluta kosztorysu": "Budget currency",
+"Kursy: {s} z dnia {d}. W stawkach możesz wpisać inną walutę (np. 300 € / dzień) – zostanie przeliczona.": "Rates: {s} from {d}. In rates you can enter another currency (e.g. 300 € / day) – it will be converted.",
+"Brak kursów. Pobierz je, aby przeliczać waluty.": "No exchange rates. Download them to convert currencies.",
+"Pobieranie…": "Downloading…",
+"Pobierz kursy NBP": "Download NBP rates",
+"Zmieniono walutę z {a} na {b}. Kwoty wpisane ręcznie nadal mają starą wartość liczbową.": "The currency changed from {a} to {b}. Amounts typed by hand still have their old numeric value.",
+"Przelicz kwoty na {b}": "Convert amounts to {b}",
+"Zostaw bez zmian": "Leave unchanged",
+"Kursy (zł za 1 jednostkę) – można poprawić ręcznie": "Rates (PLN per 1 unit) – can be corrected by hand",
+"Kurs": "Rate",
+"brak kursu": "no rate",
+"Przeliczenie planu:": "Plan converted:",
+"kursy {s} z dnia {d}": "rates {s} from {d}",
+"Plan po przeliczeniu na {c}": "Plan converted to {c}"
+});
+I18N.add({
+"Podstawa obciążenia dnia": "Day load based on",
+"Strony scenariusza": "Script pages",
+"Shotlista (czasy ujęć)": "Shot list (shot times)",
+"Czas zdjęć na dzień (godz.)": "Shooting time per day (h)",
+"Przestawka między scenami (min)": "Move between scenes (min)",
+"Do jednego dnia trafia tyle scen, ile mieści się w podanym czasie zdjęć: suma czasów ujęć z shotlisty plus przestawki. Scen bez ujęć z czasem jest teraz: {n} (liczone ze stron, 12 min na ósemkę).": "A day gets as many scenes as fit in the given shooting time: the sum of shot times from the shot list plus moves. Scenes without timed shots right now: {n} (counted from pages, 12 min per eighth)."
+});

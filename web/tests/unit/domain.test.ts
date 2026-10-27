@@ -54,9 +54,12 @@ describe('godziny pracy i obiad', () => {
 
 describe('stawki w kosztorysie', () => {
   it('rozpoznaje jednostki stawek', () => {
-    expect(Core.parseRate('1 800 zł / dzień')).toEqual({ amount: 1800, unit: 'day' });
-    expect(Core.parseRate('12.000,00 zł za projekt')).toEqual({ amount: 12000, unit: 'project' });
-    expect(Core.parseRate('150 zł/h')).toEqual({ amount: 150, unit: 'hour' });
+    expect(Core.parseRate('1 800 zł / dzień')).toEqual({ amount: 1800, unit: 'day', cur: 'PLN' });
+    expect(Core.parseRate('12.000,00 zł za projekt')).toEqual({ amount: 12000, unit: 'project', cur: 'PLN' });
+    expect(Core.parseRate('150 zł/h')).toEqual({ amount: 150, unit: 'hour', cur: 'PLN' })
+    expect(Core.parseRate('300 € / dzień')).toEqual({ amount: 300, unit: 'day', cur: 'EUR' })
+    expect(Core.parseRate('250 USD za projekt')).toEqual({ amount: 250, unit: 'project', cur: 'USD' })
+    expect(Core.parseRate('800 / dzień')).toEqual({ amount: 800, unit: 'day', cur: null });
     expect(Core.parseRate('do ustalenia')).toBeNull();
   });
   it('stawka × dni pracy trafia do pionu Ekipa', () => {
@@ -64,6 +67,64 @@ describe('stawki w kosztorysie', () => {
     st.crew.push(Core.newCrew({ first: 'A', last: 'B', rate: '1 000 zł / dzień' }));
     const crew = Core.budgetData(st).cats.find((c: any) => c.key === 'crew')!;
     expect(crew.est).toBe(1000 * st.days.filter((d: any) => d.kind === 'shoot').length);
+  });
+});
+
+describe('stawka lokacji', () => {
+  it('stawka dzienna × dni, w których obiekt jest w planie, trafia do pionu Lokacje', () => {
+    const st = Core.normalize(demo());
+    const rd = Core.reportData(st);
+    const site = rd.sites.find((x: any) => x.days.length)!;
+    st.sites[site.site] = Core.siteEntry({ ...st.sites[site.site], rate: '2 000 zł / dzień' });
+    const cat = Core.budgetData(st).cats.find((c: any) => c.key === 'site')!;
+    expect(cat.est).toBe(2000 * site.days.length);
+    expect(cat.items[0].line.kind).toBe('site');
+  });
+});
+
+describe('waluty', () => {
+  const fx = Core.parseNbp([{ effectiveDate: '2026-10-27', rates: [{ code: 'EUR', mid: 4.25 }, { code: 'USD', mid: 3.9 }, { code: 'XXX', mid: 9 }] }])!;
+  it('tabela NBP daje kursy tylko znanych walut', () => {
+    expect(fx.pln).toEqual({ EUR: 4.25, USD: 3.9 });
+    expect(Core.parseNbp({})).toBeNull();
+  });
+  it('przelicza między walutami przez złotego i zwraca null bez kursu', () => {
+    const st = Core.normalize(demo()); st.budget.fx = fx;
+    expect(Core.convert(st, 425, 'EUR', 'PLN')).toBeCloseTo(1806.25, 2);
+    expect(Core.convert(st, 100, 'EUR', 'USD')).toBeCloseTo(108.97, 2);
+    expect(Core.convert(st, 100, 'GBP', 'PLN')).toBeNull();
+  });
+  it('stawka w obcej walucie jest przeliczana na walutę projektu, suma ma przeliczenie na EUR i USD', () => {
+    const st = Core.normalize(demo()); st.budget.fx = fx;
+    const n = st.days.filter((d: any) => d.kind === 'shoot').length;
+    st.crew.push(Core.newCrew({ first: 'A', last: 'B', rate: '100 € / dzień' }));
+    const bd = Core.budgetData(st);
+    expect(bd.cats.find((c: any) => c.key === 'crew')!.est).toBeCloseTo(100 * 4.25 * n, 1);
+    expect(bd.conv.map((x: any) => x.cur)).toEqual(['EUR', 'USD']);
+    expect(bd.conv[0].est).toBeCloseTo(bd.est / 4.25, 2);
+    st.budget.currency = 'EUR';
+    const be = Core.budgetData(st);
+    expect(be.cats.find((c: any) => c.key === 'crew')!.est).toBeCloseTo(100 * n, 1);
+    expect(be.conv.map((x: any) => x.cur)).toEqual(['USD']);
+    expect(Core.fmtMoney(1234.5)).toBe('1 234,50 €');
+    Core.setCurrency('PLN');
+  });
+});
+
+describe('kalendarzówka z shotlisty', () => {
+  it('dzień wypełnia się według czasów ujęć, nie stron', () => {
+    const st = Core.normalize(demo());
+    st.days = []; st.sheets = {};
+    const sc = st.scenes.slice(0, 4);
+    st.shots = []; sc.forEach((s: any) => st.shots.push(Core.newShot(st, s.id)));
+    st.shots.forEach((x: any) => { x.eta = '3h'; });
+    const rest = st.scenes.slice(4).map((s: any) => s.id);
+    const n = Core.autoPlan(st, { strategy: 'script', scope: 'unscheduled', separateNight: false, basis: 'shots', hours: 8, move: 0 });
+    // 4 sceny po 3 h przy 8 h na dzień dają co najmniej 2 dni tylko dla nich
+    expect(n).toBeGreaterThanOrEqual(2);
+    expect(st.days.flatMap((d: any) => d.sceneIds).length).toBe(st.scenes.length);
+    expect(Core.sceneMinutes(st, sc[0], { move: 10 })).toBe(190);
+    expect(Core.scenesWithoutEta(st, st.scenes.filter((s: any) => rest.includes(s.id)))).toBe(rest.length);
   });
 });
 

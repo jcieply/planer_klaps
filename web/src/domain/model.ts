@@ -19,7 +19,7 @@ export interface CrewMember {
 }
 export interface Day { id: string; kind: DayKind; date: string; call: string; end: string; site: string; note: string; sceneIds: string[] }
 export interface Geo { lat: number; lon: number; label: string }
-export interface Site { realName: string; address: string; owner: string; ownerContact: string; power: string; toilet: string; camp: string; contract: string; notes: string; manual?: boolean; geo?: Geo | null; geoQuery?: string }
+export interface Site { realName: string; address: string; owner: string; ownerContact: string; power: string; toilet: string; camp: string; contract: string; rate: string; notes: string; manual?: boolean; geo?: Geo | null; geoQuery?: string }
 export interface SheetRow {
   id: string; kind: 'custom' | 'scene' | 'shot'; sceneId: string; shotId: string; fix: string;
   dur: number | null; prep: number | null; num: string | null; shot: string | null; desc: string | null; cast: string | null; camera: string | null; notes: string;
@@ -44,6 +44,7 @@ export interface Dpr {
   closed: boolean; closedAt?: number | null;
 }
 export interface Shot { id: string; sceneId: string; shot: string; type: string; desc: string; lens: string; grip: string; eta: string; cast: string; site: string }
+export interface Fx { date: string; src: string; pln: Record<string, number>; manual: boolean }
 export interface BudgetItem { id: string; cat: string; name: string; est: string | number; act: string | number; dayId: string; site: string; note: string }
 export interface Vehicle { id: string; name: string; type: string; plate: string; driver: string; phone: string; note: string }
 export interface Trip { id: string; dayId: string; vehicleId: string; time: string; from: string; to: string; who: string; note: string }
@@ -57,7 +58,7 @@ export interface Meta {
 export interface ProjectState {
   v: number; meta: Meta; scenes: Scene[]; cast: CastMember[]; days: Day[]; sites: Record<string, Site>; nextCast: number;
   sheets: Record<string, Sheet>; transport: { vehicles: Vehicle[]; trips: Trip[] };
-  budget: { items: BudgetItem[]; rates: Record<string, { act?: string; off?: boolean }>; autoRates: boolean };
+  budget: { items: BudgetItem[]; rates: Record<string, { act?: string; off?: boolean }>; autoRates: boolean; currency: string; fx: Fx | null };
   crew: CrewMember[]; shots: Shot[]; media: Record<string, Media>; catering: { cast: boolean; extra: Record<string, number> };
   todos: Todo[]; demo?: boolean; dpr?: Record<string, Dpr>;
 }

@@ -70,7 +70,7 @@ export const useProject = create<ProjectStore>()(
 
 // stan zapisany w magazynie jest niezmienny – rdzeń może pamiętać wyliczenia dla niego (Core.commitState)
 Core.commitState(useProject.getState().st);
-useProject.subscribe((s) => { Core.commitState(s.st); });
+useProject.subscribe((s) => { Core.commitState(s.st); Core.setCurrency(s.st && s.st.budget ? s.st.budget.currency : 'PLN'); });
 
 export const history = () => useProject.temporal.getState();
 export const undo = () => (undoHooks.undo ? undoHooks.undo() : history().undo());
