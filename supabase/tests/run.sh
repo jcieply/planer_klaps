@@ -7,7 +7,7 @@ if [ -z "${PGHOST:-}" ]; then
   D=$(mktemp -d); chmod 777 "$D"
   SOCK=$(mktemp -d); chmod 777 "$SOCK"
   RUN() { if [ "$(id -u)" = 0 ]; then runuser -u postgres -- "$@"; else "$@"; fi; }
-  RUN "$PGBIN/initdb" -D "$D/data" -A trust >/dev/null
+  RUN "$PGBIN/initdb" -D "$D/data" -U postgres -A trust >/dev/null
   RUN "$PGBIN/pg_ctl" -D "$D/data" -o "-k $SOCK -c listen_addresses=''" -l "$D/log" -w start >/dev/null
   trap 'RUN "$PGBIN/pg_ctl" -D "$D/data" -m immediate stop >/dev/null 2>&1 || true' EXIT
   export PGHOST="$SOCK" PGUSER=postgres PGDATABASE=postgres

@@ -22,7 +22,7 @@ async function startPostgres() {
   fs.chmodSync(dir, 0o777); fs.chmodSync(sock, 0o777);
   const asPg = process.getuid && process.getuid() === 0 ? (cmd, args) => ['runuser', ['-u', 'postgres', '--', cmd, ...args]] : (cmd, args) => [cmd, args];
   const run = (cmd, args) => { const [c, a] = asPg(cmd, args); const r = cp.spawnSync(c, a, { encoding: 'utf8' }); if (r.status !== 0) throw new Error(cmd + ': ' + r.stderr); };
-  run(bin + '/initdb', ['-D', dir + '/data', '-A', 'trust']);
+  run(bin + '/initdb', ['-D', dir + '/data', '-U', 'postgres', '-A', 'trust']);
   run(bin + '/pg_ctl', ['-D', dir + '/data', '-o', `-k ${sock} -c listen_addresses=''`, '-l', dir + '/log', '-w', 'start']);
   return { env: { ...process.env, PGHOST: sock, PGUSER: 'postgres', PGDATABASE: 'postgres' }, stop: async () => { try { run(bin + '/pg_ctl', ['-D', dir + '/data', '-m', 'immediate', 'stop']); } catch (e) { /* brak */ } } };
 }
