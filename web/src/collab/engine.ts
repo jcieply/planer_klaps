@@ -180,7 +180,7 @@ export class Engine<S> {
   }
   /** czekaj aż wszystko zostanie wysłane i potwierdzone (testy, zamykanie okna) */
   async settle(): Promise<void> {
-    for (let n = 0; n < 200 && (this.pending.length || this.sending); n++) { await this.flush(); await this.chain; await new Promise((r) => setTimeout(r, 0)); }
+    for (let n = 0; n < 200 && !this.closed && (this.pending.length || this.sending); n++) { await this.flush(); await this.chain; await new Promise((r) => setTimeout(r, 0)); }
     await this.chain;
   }
 }

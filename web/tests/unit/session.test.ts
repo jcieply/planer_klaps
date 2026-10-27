@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const H = vi.hoisted(() => ({ role: 'editor' as string, renamed: [] as string[], store: new Map<string, unknown>(), srv: null as any }));
+const H = vi.hoisted(() => ({ offline: false, role: 'editor' as string, renamed: [] as string[], store: new Map<string, unknown>(), srv: null as any }));
 vi.mock('../../src/collab/cloud', async () => {
   const { FakeServer } = await import('../../src/collab/fake');
   H.srv = new FakeServer();
   const chain: any = { on: () => chain, subscribe: () => chain, track: async () => undefined, presenceState: () => ({}) };
   return {
     currentUser: async () => ({ id: 'me', name: 'Ja', email: 'ja@x', position: 'Reżyser', avatar: '', color: '#fff' }),
-    myRole: async () => H.role,
+    myRole: async () => { if (H.offline) throw new Error('offline'); return H.role; },
     codecFor: async () => ({ enc: async (v: unknown) => JSON.stringify(v), dec: async (s: string) => JSON.parse(s) }),
     makeTransport: () => H.srv.client(),
     cacheGet: async (id: string) => H.store.get(id) ?? null,
@@ -28,7 +28,7 @@ import type { ProjectState } from '../../src/domain/model';
 const plain = { enc: async (v: unknown) => JSON.stringify(v), dec: async (s: string) => JSON.parse(s) };
 const wait = (ms = 20) => new Promise((r) => setTimeout(r, ms));
 async function setup(role = 'editor') {
-  H.role = role; H.renamed = []; H.store.clear();
+  H.offline = false; H.role = role; H.renamed = []; H.store.clear();
   await closeCloud();
   const st = Core.newState(); st.meta.title = 'Film';
   H.srv = new (H.srv.constructor)(); H.srv.init(JSON.stringify(st));
@@ -40,6 +40,28 @@ async function setup(role = 'editor') {
 }
 
 describe('sesja chmurowa w oknie głównym', () => {
+  it('bez internetu otwiera projekt z pamięci podręcznej z ostatnią znaną rolą (edytor nie staje się widzem)', async () => {
+    const other = await setup('editor');
+    mutate((st) => { st.meta.company = 'Offline'; });
+    await flushCloud(); await closeCloud();
+    H.offline = true; H.srv.setOnlineAll?.(false);
+    const net = H.srv.client(); net.setOnline(false);
+    expect(H.store.get('p1')).toBeTruthy();
+    // transport sesji też jest „bez sieci”
+    const orig = H.srv.client; H.srv.client = () => net;
+    const view = await openCloud('p1');
+    H.srv.client = orig;
+    expect(view.meta.company).toBe('Offline');
+    expect(useCollab.getState().role).toBe('editor');
+    mutate((st) => { st.meta.director = 'Bez sieci'; });
+    expect(getSt().meta.director).toBe('Bez sieci');
+    expect(useCollab.getState().pending).toBeGreaterThan(0);
+    other.close();
+  });
+  it('bez internetu i bez pamięci podręcznej nie zgadujemy roli', async () => {
+    await closeCloud(); H.store.clear(); H.offline = true;
+    await expect(openCloud('p1')).rejects.toThrow(/połączenia/);
+  });
   beforeEach(async () => { await closeCloud(); });
   it('zmiana w programie trafia do innych osób, a zmiana innej osoby pojawia się w programie', async () => {
     const other = await setup();

@@ -24,13 +24,15 @@ let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let titleTimer: ReturnType<typeof setTimeout> | null = null;
 let lastTitle = '';
 let channel: RealtimeChannel | null = null;
-const clientId = (): string => { try { const k = sessionStorage.getItem('klaps.cid'); if (k) return k; const n = crypto.randomUUID(); sessionStorage.setItem('klaps.cid', n); return n; } catch { return crypto.randomUUID(); } };
 const BURST_MS = 700;
+interface Cached { p: Persisted; role: Role; clientId: string }
+let cid0 = '';
+function snapshotCache(): Cached { return { p: eng!.persisted(), role: (useCollab.getState().role || 'viewer') as Role, clientId: cid0 }; }
 
 function refreshHistory() { set({ canUndo: !!eng?.canUndo, canRedo: !!eng?.canRedo, pending: eng?.pending.length || 0 }); }
 function schedulePersist(id: string) {
   if (persistTimer) return;
-  persistTimer = setTimeout(() => { persistTimer = null; if (eng) void cloud.cachePut(id, eng.persisted() as Persisted); }, 1200);
+  persistTimer = setTimeout(() => { persistTimer = null; if (eng) void cloud.cachePut(id, snapshotCache()); }, 1200);
 }
 
 /** otwiera projekt z chmury i zwraca jego aktualny stan */
@@ -38,17 +40,22 @@ export async function openCloud(id: string): Promise<ProjectState> {
   await closeCloud();
   const me = await cloud.currentUser();
   if (!me) throw new Error(T('Zaloguj się do chmury, aby otworzyć ten projekt.'));
-  const role = (await cloud.myRole(id).catch(() => null)) || 'viewer';
   const codec = await cloud.codecFor(id);
-  const restore = (await cloud.cacheGet<Persisted>(id)) || undefined;
+  const cached = (await cloud.cacheGet<Cached>(id)) || undefined;
+  // rola z serwera; bez internetu – ostatnia znana (z pamięci podręcznej); bez niczego nie wiemy, czy wolno edytować
+  const role: Role | null = (await cloud.myRole(id).catch(() => null)) || cached?.role || null;
+  if (!role) throw new Error(T('Brak połączenia z chmurą. Sprawdź internet i spróbuj ponownie.'));
+  const restore = cached?.p;
+  // ten sam identyfikator klienta po ponownym uruchomieniu: serwer rozpozna już wysłane paczki i nie zastosuje ich drugi raz
+  const cid = cached?.clientId || crypto.randomUUID();
   const e = new Engine<ProjectState>({
-    transport: cloud.makeTransport(id), codec, clientId: clientId(), readOnly: role === 'viewer', restore,
-    onView: (v) => { flags.remote = true; try { useProject.setState({ st: v as never }); } finally { flags.remote = false; } refreshHistory(); },
+    transport: cloud.makeTransport(id), codec, clientId: cid, readOnly: role === 'viewer', restore,
+    onView: (v) => { lastTitle = (v as ProjectState).meta?.title || lastTitle; flags.remote = true; try { useProject.setState({ st: v as never }); } finally { flags.remote = false; } refreshHistory(); },
     onStatus: (s) => set({ status: s }),
     onError: (err) => { console.warn('[klaps/chmura]', err); },
     onPersist: () => { schedulePersist(id); refreshHistory(); },
   });
-  eng = e;
+  eng = e; cid0 = cid;
   const view = await e.open();
   lastTitle = view.meta?.title || '';
   set({ active: true, id, role, status: role === 'viewer' ? 'readonly' : 'online', me, canUndo: e.canUndo, canRedo: e.canRedo, pending: e.pending.length });
@@ -116,7 +123,7 @@ export async function flushCloud(): Promise<void> {
   if (!eng) return;
   const id = useCollab.getState().id!;
   await Promise.race([eng.settle(), new Promise((r) => setTimeout(r, 4000))]);
-  await cloud.cachePut(id, eng.persisted());
+  await cloud.cachePut(id, snapshotCache());
 }
 export async function closeCloud(): Promise<void> {
   if (!eng) return;

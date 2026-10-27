@@ -45,10 +45,10 @@ jobs:
       - run: npm install --no-audit --no-fund
         working-directory: web
       - name: Schemat SQL (role, zaproszenia, RLS, numeracja zmian)
-        run: bash supabase/tests/run.sh
+        run: bash supabase/tests/run.sh 2>&1 | tee chmura.log; test ${PIPESTATUS[0]} -eq 0
       - name: Stos chmury (supabase-js + Realtime + szyfrowanie na prawdziwym Postgresie)
         working-directory: web
-        run: npm run test:cloud
+        run: npm run test:cloud 2>&1 | tee ../chmura.log; test ${PIPESTATUS[0]} -eq 0
       - name: Aplikacja ze sztuczną chmurą wbudowaną w program
         run: npm run prepare-app
         env:
@@ -57,9 +57,12 @@ jobs:
       - name: Dwie osoby w prawdziwej aplikacji (Electron)
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq xvfb
-          xvfb-run -a --server-args="-screen 0 1600x1000x24" npm run e2e:cloud
+          xvfb-run -a --server-args="-screen 0 1600x1000x24" npm run e2e:cloud 2>&1 | tee chmura.log; test ${PIPESTATUS[0]} -eq 0
         env:
           KLAPS_SHOTS: ${{ runner.temp }}/shots-chmura
+      - name: Log błędu (jako adnotacja)
+        if: failure()
+        run: echo "::error::$(tail -c 3000 chmura.log | tr '\n' '|' | tr '%' ' ')"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

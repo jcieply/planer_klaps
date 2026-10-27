@@ -78,7 +78,8 @@ export async function currentUser(): Promise<CloudUser | null> {
   if (!cloudConfigured()) return null;
   const { data } = await (await client()).auth.getSession();
   const u = data.session?.user; if (!u) return null;
-  const rows = await q<any[]>((await client()).from('klaps_profiles').select('*').eq('id', u.id).limit(1));
+  // bez internetu zostają dane z sesji (imię i stanowisko podane przy zakładaniu konta)
+  const rows = await q<any[]>((await client()).from('klaps_profiles').select('*').eq('id', u.id).limit(1)).catch(() => null);
   const r = rows?.[0];
   const meta = (u.user_metadata || {}) as Record<string, string>;
   return { id: u.id, email: u.email || '', name: r?.name || meta.name || '', position: r?.position || meta.position || '', avatar: r?.avatar || '', color: r?.color || colorFor(u.id) };
@@ -99,7 +100,12 @@ export async function signIn(email: string, password: string): Promise<CloudUser
   if (!u.name) { const m = (await (await client()).auth.getUser()).data.user?.user_metadata as Record<string, string> | undefined; if (m?.name) await saveProfile({ name: m.name, position: m.position || '', avatar: '' }); }
   return (await currentUser()) || u;
 }
-export async function signOut(): Promise<void> { await (await client()).auth.signOut(); }
+export async function signOut(): Promise<void> {
+  const c = await client();
+  const me = (await c.auth.getSession()).data.session?.user.id;
+  await c.auth.signOut();
+  if (me) await vault.remove('cl:' + me);
+}
 export async function saveProfile(p: Profile): Promise<void> {
   const { data } = await (await client()).auth.getSession();
   const id = data.session?.user.id || '';
@@ -131,8 +137,20 @@ export async function forgetKey(id: string): Promise<void> { keyCache.delete(id)
 async function needKey(id: string): Promise<ProjectKey> { const k = await projectKey(id); if (!k) throw new Error(T('Brak klucza tego projektu na tym komputerze. Wpisz kod zaproszenia.')); return k; }
 
 /* ---------- projekty ---------- */
+/** lista projektów; bez internetu – ostatnia znana lista (w magazynie sekretów systemu) */
 export async function listProjects(): Promise<CloudProject[]> {
   const me = (await (await client()).auth.getSession()).data.session?.user.id; if (!me) return [];
+  try {
+    const out = await listProjectsOnline(me);
+    void vault.set('cl:' + me, JSON.stringify(out.slice(0, 60))).catch(() => undefined);
+    return out;
+  } catch (e) {
+    const raw = await vault.get('cl:' + me).catch(() => null);
+    if (raw) { try { return JSON.parse(raw) as CloudProject[]; } catch { /* uszkodzona pamięć */ } }
+    throw e;
+  }
+}
+async function listProjectsOnline(me: string): Promise<CloudProject[]> {
   const [prj, mem] = await Promise.all([
     q<any[]>((await client()).from('klaps_projects').select('id,owner,title_enc,updated_at')),
     q<any[]>((await client()).from('klaps_members').select('project_id,user_id,role')),
