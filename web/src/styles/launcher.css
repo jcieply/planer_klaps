@@ -118,10 +118,11 @@ body { background: var(--bg); user-select: none; -webkit-user-select: none; curs
 .lc-pic.ph { color: #141416; font-family: var(--f-display); font-weight: 700; letter-spacing: .04em; }
 .lc-hbtns { display: inline-flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .lc-share.warn { color: var(--warn, #c98a1b); }
-.lc-modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(8,8,10,.55); animation: lc-fade .15s ease both; }
+.lc-modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(8,8,10,.55); -webkit-app-region: no-drag; animation: lc-fade .15s ease both; }
 @keyframes lc-fade { from { opacity: 0; } }
-.lc-dlg { width: min(460px, 100%); max-height: 100%; overflow: auto; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0,0,0,.45); padding: 18px 20px 20px; animation: lc-pop .18s var(--ease) both; }
+.lc-dlg { width: min(460px, 100%); max-height: 100%; overflow: auto; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0,0,0,.45); padding: 18px 20px 20px; -webkit-app-region: no-drag; animation: lc-pop .18s var(--ease) both; }
 .lc-dlg.wide { width: min(640px, 100%); }
+.lc-modal *, .lc-dlg * { -webkit-app-region: no-drag; }
 @keyframes lc-pop { from { opacity: 0; transform: translateY(8px) scale(.985); } }
 .lc-dlg header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .lc-dlg h3 { margin: 0; font-family: var(--f-display); font-size: 21px; letter-spacing: .03em; text-transform: uppercase; font-weight: 600; }
