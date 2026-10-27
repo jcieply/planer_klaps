@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="2"><Content>
+<Paragraph Number="1" Type="Scene Heading"><Text>WN. DOM ANI – KUCHNIA – RANEK</Text></Paragraph>
+<Paragraph Type="Action"><Text>Budzik dzwoni po raz trzeci. ANIA (32) stoi przy blacie w piżamie i wpatruje się w ekran telefonu. Za oknem szary listopad. Na stole stoi nietknięta herbata.</Text></Paragraph>
+<Paragraph Type="Character"><Text>MATKA (V.O.)</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Wystarczy, że przyjedziesz. Nie musisz zostawać na obiad.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Mamo, ja naprawdę nie zdążę. Autobus jedzie dwie godziny.</Text></Paragraph>
+<Paragraph Type="Character"><Text>MATKA (V.O.)</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Ela przyjedzie samochodem. Ty też mogłabyś.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Parenthetical"><Text>(cicho)</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Nie mam już samochodu.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Cisza w słuchawce. Ania zamyka oczy.</Text></Paragraph>
+<Paragraph Type="Character"><Text>MATKA (V.O.)</Text></Paragraph>
+<Paragraph Type="Parenthetical"><Text>(po chwili)</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Kupiłam dla ciebie ten sernik.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Ania rozłącza się. Chwyta kurtkę z oparcia krzesła.</Text></Paragraph>
+<Paragraph Number="2" Type="Scene Heading"><Text>WN. DOM ANI – KLATKA SCHODOWA – RANEK</Text></Paragraph>
+<Paragraph Type="Action"><Text>Ania zbiega po schodach. Na półpiętrze mija PANA STASZKA (78), który wynosi worek ze śmieciami. Stawia go ostrożnie, jakby niósł coś cennego.</Text></Paragraph>
+<Paragraph Type="Character"><Text>STASZEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Do miasta, pani Aniu?</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Do mamy. Na zjazd rodzinny.</Text></Paragraph>
+<Paragraph Type="Character"><Text>STASZEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>To się pani pospieszy. Podobno siedemnastka kursuje dzisiaj ostatni raz.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Jak to ostatni raz?</Text></Paragraph>
+<Paragraph Type="Character"><Text>STASZEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Likwidują linię. Od jutra pustynia.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Ania przystaje na moment, potem biegnie dalej.</Text></Paragraph>
+<Paragraph Number="3" Type="Scene Heading"><Text>PL. PRZYSTANEK AUTOBUSOWY – RANEK</Text></Paragraph>
+<Paragraph Type="Action"><Text>Mokry chodnik. Na przystanku stoi tylko Ania i jedna ławka bez oparcia. Wiatr szarpie rozklejonym rozkładem jazdy.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Ania sprawdza godzinę. Dziewięć minut do odjazdu. Dziewięć minut do spóźnienia.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Zza zakrętu wyłania się autobus z numerem 17 na przedniej szybie.</Text></Paragraph>
+<Paragraph Number="4" Type="Scene Heading"><Text>WN. AUTOBUS 17 – RANEK</Text></Paragraph>
+<Paragraph Type="Action"><Text>Prawie pusto. KIEROWCA (55) słucha radia, z którego ktoś odczytuje prognozę pogody dla całego kraju. Ania kasuje bilet i idzie w głąb.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Przy oknie siedzi TOMEK (34), z plecakiem na kolanach. Podnosi wzrok. Mina mu rzednie.</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Ania.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Cześć, Tomek.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Ania siada dwa rzędy przed nim. Nie odwraca się.</Text></Paragraph>
+<Paragraph Number="5" Type="Scene Heading"><Text>WN. AUTOBUS 17 – RANEK</Text></Paragraph>
+<Paragraph Type="Action"><Text>Autobus ruszył. Ania patrzy w szybę, ale widzi w niej odbicie Tomka. Tomek nachyla się do przodu.</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Jedziesz do mamy?</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>A ty dokąd?</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Do ciebie. To znaczy... Do twojej mamy. Ela mnie zaprosiła.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Parenthetical"><Text>(odwraca się powoli)</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Ela cię zaprosiła.</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Mówiła, że będzie dobrze, jak przyjdę. Że wszyscy już zapomnieli.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Wszyscy poza mną.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Silnik autobusu charczy. Kierowca przeklina pod nosem.</Text></Paragraph>
+<Paragraph Type="Transition"><Text>ŚCIĘCIE DO:</Text></Paragraph>
+<Paragraph Number="6" Type="Scene Heading"><Text>PL. ULICA PRZY RONDZIE – DZIEŃ</Text></Paragraph>
+<Paragraph Type="Action"><Text>Autobus stoi z otwartymi drzwiami na poboczu. Spod maski unosi się para. Kierowca macha ręką do kilku pasażerów, którzy wysiadają.</Text></Paragraph>
+<Paragraph Type="Character"><Text>KIEROWCA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Dalej piechotą, państwo. Do centrum dwa kilometry.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Ania wyskakuje z autobusu. Tomek za nią, z plecakiem na jednym ramieniu.</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Mogę iść z tobą.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Idź swoją drogą.</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>To jest moja droga. Przecież jedna.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Ania patrzy na niego. Przez chwilę wygląda, jakby miała się roześmiać. Idą obok siebie, nie rozmawiając.</Text></Paragraph>
+<Paragraph Number="7" Type="Scene Heading"><Text>WN. KAWIARNIA „POD ZEGAREM” – DZIEŃ</Text></Paragraph>
+<Paragraph Type="Action"><Text>Małe wnętrze pachnące cynamonem. Ania i Tomek siedzą przy stoliku pod oknem. Przed nimi stygną dwie kawy. BARISTA (24) wyciera ladę i podsłuchuje.</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Wiesz, że nie chciałem tego wtedy powiedzieć.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Ale powiedziałeś.</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Po tym jak zniknęłaś na trzy miesiące bez słowa.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Nie zniknęłam. Pracowałam.</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Parenthetical"><Text>(spokojnie)</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Pracowałaś. Przy ojcu, w szpitalu, przy wszystkim. A ja stałem z boku.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Ania miesza łyżeczką w pustej filiżance. Barista odchrząkuje.</Text></Paragraph>
+<Paragraph Type="Character"><Text>BARISTA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Przepraszam, czy państwu jeszcze coś podać?</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Nie, dziękujemy.</Text></Paragraph>
+<Paragraph Number="8" Type="Scene Heading"><Text>WN. KAWIARNIA „POD ZEGAREM” – ŁAZIENKA – DZIEŃ</Text></Paragraph>
+<Paragraph Type="Action"><Text>Wąska łazienka z lustrem w złotej ramie. Ania opiera dłonie o umywalkę. Telefon wibruje na krawędzi.</Text></Paragraph>
+<Paragraph Type="Character"><Text>MATKA (V.O.)</Text></Paragraph>
+<Paragraph Type="Parenthetical"><Text>(nagranie na poczcie głosowej)</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Aniu, gdzie jesteś? Ela już jest. Sernik stygnie.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Ania patrzy na własne odbicie dłuższą chwilę. Ochlapuje twarz wodą.</Text></Paragraph>
+<Paragraph Number="9" Type="Scene Heading"><Text>PL. PARK MIEJSKI – POPOŁUDNIE</Text></Paragraph>
+<Paragraph Type="Action"><Text>Aleja wysypana żwirem. Na ławce siedzi ELA (29) z kubkiem kawy na wynos i patrzy na kaczki. Widzi nadchodzących Anię i Tomka.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ELA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Spóźniliście się.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>To nie my. To autobus.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ELA</Text></Paragraph>
+<Paragraph Type="Parenthetical"><Text>(do Tomka)</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Dobrze, że jesteś.</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Nie jestem pewien.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ELA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>A ja jestem. Mama pytała o was oboje.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Ania siada na ławce obok siostry. Przez chwilę wszyscy milczą, obserwując kaczki.</Text></Paragraph>
+<Paragraph Number="10" Type="Scene Heading"><Text>WN. BIURO – OPEN SPACE – DZIEŃ</Text></Paragraph>
+<Paragraph Type="Action"><Text>Przeszklone biuro z rzędami pustych biurek. Tylko SZEF (47) siedzi nad papierami przy oknie. Jego telefon dzwoni. Odbiera, nie podnosząc oczu.</Text></Paragraph>
+<Paragraph Type="Character"><Text>SZEF</Text></Paragraph>
+<Paragraph Type="Parenthetical"><Text>(do słuchawki)</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Pani Anna jest dziś nieobecna. Tak, proszę zostawić wiadomość.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Rozłącza się. Zerka na puste biurko Ani, na którym leży niedokończona teczka z dokumentami.</Text></Paragraph>
+<Paragraph Number="11" Type="Scene Heading"><Text>WN. DOM RODZINNY – SALON – WIECZÓR</Text></Paragraph>
+<Paragraph Type="Action"><Text>Duży stół nakryty białym obrusem. MATKA (62) rozkłada talerze. Ela pomaga. Ania stoi w progu z kurtką w ręku, jakby nie była pewna, czy może wejść.</Text></Paragraph>
+<Paragraph Type="Character"><Text>MATKA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Dobrze, że jesteś. Siadaj tutaj, koło okna.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Mamo, ja...</Text></Paragraph>
+<Paragraph Type="Character"><Text>MATKA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Siadaj.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Ania siada. Tomek staje w drzwiach z paczką ciastek w rękach.</Text></Paragraph>
+<Paragraph Type="Character"><Text>MATKA (CD.)</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Ty też, Tomku. Nie stój jak na przystanku.</Text></Paragraph>
+<Paragraph Number="12" Type="Scene Heading"><Text>WN. DOM RODZINNY – KUCHNIA – WIECZÓR</Text></Paragraph>
+<Paragraph Type="Action"><Text>Matka kroi sernik na równe kawałki. Ania opiera się o framugę.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Dlaczego go zaprosiłaś?</Text></Paragraph>
+<Paragraph Type="Character"><Text>MATKA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Nie ja. Ela.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Ale mogłaś powiedzieć nie.</Text></Paragraph>
+<Paragraph Type="Character"><Text>MATKA</Text></Paragraph>
+<Paragraph Type="Parenthetical"><Text>(nie podnosi wzroku)</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Mogłam. Tak jak ty mogłaś przez rok nie dzwonić.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Cisza. Nóż uderza o deskę. Matka podaje Ani talerz z ciastem.</Text></Paragraph>
+<Paragraph Number="13" Type="Scene Heading"><Text>PL. DOM RODZINNY – OGRÓD – ZMIERZCH</Text></Paragraph>
+<Paragraph Type="Action"><Text>Ogród zalany pomarańczowym światłem. Tomek stoi pod jabłonią i pali papierosa. Ania wychodzi z domu i staje obok niego.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Rzuciłeś.</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Rzuciłem. Wczoraj.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Parenthetical"><Text>(z uśmiechem)</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Ambitnie.</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Chciałem cię przeprosić. Naprawdę. Ćwiczyłem to zdanie cały dzień i teraz nic mi nie przychodzi do głowy.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Nie ćwicz. Powiedz po swojemu.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Tomek gasi papierosa o korę drzewa.</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Przepraszam, że mnie nie było.</Text></Paragraph>
+<Paragraph Number="14" Type="Scene Heading"><Text>WN. DOM RODZINNY – SALON – NOC</Text></Paragraph>
+<Paragraph Type="Action"><Text>Kolacja dobiegła końca. Na stole szklanki po herbacie i okruchy sernika. Ela śpi na kanapie z głową na ramieniu mamy. Matka głaszcze ją po włosach i patrzy na Anię.</Text></Paragraph>
+<Paragraph Type="Character"><Text>MATKA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Zostaniesz na noc?</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Ostatni autobus odjeżdża o dwudziestej trzeciej.</Text></Paragraph>
+<Paragraph Type="Character"><Text>MATKA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Wiem. Spytałam.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Ania wstaje, zbiera kurtkę. Matka podnosi się z kanapy ostrożnie, żeby nie obudzić Eli.</Text></Paragraph>
+<Paragraph Number="15" Type="Scene Heading"><Text>PL. DOM RODZINNY – PODJAZD – NOC</Text></Paragraph>
+<Paragraph Type="Action"><Text>Chłodna, bezksiężycowa noc. Tomek stoi przy starym samochodzie i szuka kluczyków po kieszeniach. Ania wychodzi na ganek.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Odwieziesz mnie?</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Chciałem zapytać.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>No to już wiesz.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Matka stoi w oknie salonu. Unosi rękę w niepewnym geście pożegnania.</Text></Paragraph>
+<Paragraph Number="16" Type="Scene Heading"><Text>WN. SAMOCHÓD TOMKA – NOC</Text></Paragraph>
+<Paragraph Type="Action"><Text>Wnętrze pachnie starą tapicerką i sosnowym odświeżaczem powietrza. Tomek prowadzi, Ania siedzi z kolanami przy brodzie. Za szybą przesuwają się latarnie.</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Pamiętasz, jak wracaliśmy tędy po twoich urodzinach?</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Spaliśmy na przystanku, bo nie było żadnego autobusu.</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Wszystko już wtedy było jasne.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Nic nie było jasne. Ty tylko tak mówisz.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Tomek zerka na nią i uśmiecha się.</Text></Paragraph>
+<Paragraph Number="17" Type="Scene Heading"><Text>PL. DWORZEC AUTOBUSOWY – NOC</Text></Paragraph>
+<Paragraph Type="Action"><Text>Pusty peron oświetlony jedną lampą. Na ławce siedzi STASZEK z torbą na kolanach. Podnosi głowę, gdy zbliżają się kroki.</Text></Paragraph>
+<Paragraph Type="Character"><Text>STASZEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Pani Ania. A ja myślałem, że pani zostanie.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Co pan tu robi o tej porze?</Text></Paragraph>
+<Paragraph Type="Character"><Text>STASZEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Odprowadzam ostatni autobus. Takie jest prawo mieszkańca.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Z oddali słychać warkot silnika. Ania odwraca się do Tomka.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Dziękuję za podwózkę.</Text></Paragraph>
+<Paragraph Type="Character"><Text>TOMEK</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Zadzwonisz?</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Zobaczymy.</Text></Paragraph>
+<Paragraph Type="Transition"><Text>PRZEJŚCIE DO:</Text></Paragraph>
+<Paragraph Number="18" Type="Scene Heading"><Text>WN. AUTOBUS 17 – NOC</Text></Paragraph>
+<Paragraph Type="Action"><Text>Autobus jest zupełnie pusty. Ania siada przy oknie. Kierowca patrzy na nią we wstecznym lusterku.</Text></Paragraph>
+<Paragraph Type="Character"><Text>KIEROWCA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Ostatni kurs. Jak pani pierwsza, to pani wybiera muzykę.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Parenthetical"><Text>(po chwili)</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Poproszę coś spokojnego.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Kierowca przełącza stację. Z głośnika sączy się cicha, stara piosenka. Ania opiera skroń o szybę. Za nią rozmazują się światła miasta.</Text></Paragraph>
+<Paragraph Number="19" Type="Scene Heading"><Text>WN./PL. MIESZKANIE ANI – BALKON – NOC</Text></Paragraph>
+<Paragraph Type="Action"><Text>Ania stoi na balkonie, owinięta kocem. W dłoni trzyma telefon. Na ekranie wiadomość od Tomka: "Dojechałaś?". Wpisuje odpowiedź, kasuje. Wpisuje ponownie.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Daleko w dole przejeżdża pusty autobus linii 17, ostatni raz.</Text></Paragraph>
+<Paragraph Number="20" Type="Scene Heading"><Text>WN. DOM ANI – KUCHNIA – RANEK</Text></Paragraph>
+<Paragraph Type="Action"><Text>Ten sam blat, ta sama herbata, ale światło zmieniło się na złote. Ania zaparza dwie herbaty. Przez otwarte okno słychać dzwonek rowerowy.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Na stole leży talerzyk z kawałkiem sernika zawiniętym w folię.</Text></Paragraph>
+<Paragraph Type="Action"><Text>Dzwoni telefon. Ania patrzy na wyświetlacz, uśmiecha się i odbiera.</Text></Paragraph>
+<Paragraph Type="Character"><Text>ANIA</Text></Paragraph>
+<Paragraph Type="Dialogue"><Text>Cześć, mamo.</Text></Paragraph>
+<Paragraph Type="Action"><Text>KONIEC</Text></Paragraph>
+</Content></FinalDraft>

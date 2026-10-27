@@ -1,8 +1,8 @@
 {
   "name": "klaps-planer",
   "productName": "Klaps Planer",
-  "version": "1.2.0",
-  "description": "Klaps Planer – planowanie zdjęć: rozpiska, kalendarzówka, plan pracy, shotlista, ekipa (macOS i iOS)",
+  "version": "2.2.0",
+  "description": "Klaps Planer – planowanie zdjęć filmowych: rozpiska, kalendarzówka, plan pracy, shotlista, ekipa, raport dzienny (aplikacja na komputer)",
   "main": "electron/main.js",
   "author": "Klaps Planer",
   "license": "UNLICENSED",
@@ -10,25 +10,23 @@
   "scripts": {
     "prepare-app": "node scripts/prepare.js",
     "start": "npm run prepare-app && electron .",
-    "dist": "npm run prepare-app && electron-builder --mac dmg --publish never",
-    "test": "node test/store.test.js",
-    "prepare-ios": "node scripts/prepare.js ios",
-    "ios": "npm run prepare-ios && node scripts/ios-setup.js --open",
-    "ios-sync": "npm run prepare-ios && node scripts/ios-setup.js"
+    "dev": "electron .",
+    "dist": "npm run prepare-app && electron-builder --publish never",
+    "dist:mac": "npm run prepare-app && electron-builder --mac dmg --publish never",
+    "dist:win": "npm run prepare-app && electron-builder --win nsis --publish never",
+    "test": "node test/store.test.js && node test/profile.test.js",
+    "e2e": "node test/electron.e2e.js"
   },
   "dependencies": {},
   "devDependencies": {
-    "electron": "^33.0.0",
+    "electron": "^37.0.0",
     "electron-builder": "^25.0.0",
     "@fontsource/barlow-condensed": "^5.0.0",
     "@fontsource/courier-prime": "^5.0.0",
     "@fontsource/ibm-plex-sans": "^5.0.0",
     "pdfjs-dist": "3.11.174",
-    "@capacitor/cli": "^8.5.0",
-    "@capacitor/core": "^8.5.0",
-    "@capacitor/ios": "^8.5.0",
-    "@capacitor/filesystem": "^8.0.0",
-    "@capacitor/share": "^8.0.0"
+    "playwright-core": "^1.55.0",
+    "@fontsource/ibm-plex-mono": "^5.0.0"
   },
   "build": {
     "appId": "pl.klaps.planer",
@@ -56,6 +54,23 @@
     "dmg": {
       "title": "Klaps Planer"
     },
-    "afterPack": "scripts/adhoc-sign.js"
+    "afterPack": "scripts/adhoc-sign.js",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    },
+    "artifactName": "Klaps-Planer-${version}-${os}-${arch}.${ext}"
   }
 }
