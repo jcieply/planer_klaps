@@ -86,7 +86,7 @@ function CurrencyBox({ st }: { st: ProjectState }) {
     catch { setErr(T('Nie udało się pobrać kursów. Wpisz je ręcznie albo spróbuj później.')); }
     setBusy(false);
   };
-  useEffect(() => { if (typeof navigator === 'undefined' || navigator.onLine !== false) void load(false); /* raz po wejściu */ }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (import.meta.env.MODE !== 'e2e' && (typeof navigator === 'undefined' || navigator.onLine !== false)) void load(false); /* raz po wejściu */ }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const rateOf = (c: string) => (fx && fx.pln[c]) || '';
   const setRate = (c: string, v: string) => mutate((x) => { const n = Core.num(v); if (!(n > 0)) return; const b = x.budget.fx || { date: '', src: '', pln: {}, manual: true }; b.pln[c] = n; b.manual = true; b.src = T('własne'); x.budget.fx = b; });
   const change = (c: string) => { if (c === cur) return; setFrom(cur); mutate((x) => { x.budget.currency = c; }); };
