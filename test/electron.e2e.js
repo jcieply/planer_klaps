@@ -62,6 +62,13 @@ async function closeApp(app) {
   assert.strictEqual(titleOf(projectFiles()[0]), 'Mój film');
   const sess = await mp.evaluate(() => window.klapsDesktop.session());
   assert.strictEqual(sess.account.name, 'Jan Kowalski'); assert.strictEqual(sess.mode, 'local');
+  // menu boczne: zalogowany użytkownik zamiast przełącznika projektów (projekt zmienia się tylko w oknie startowym)
+  await mp.waitForSelector('.who');
+  assert.ok((await mp.textContent('.who')).includes('Jan Kowalski'), 'w menu bocznym widać zalogowanego użytkownika');
+  assert.strictEqual(await mp.locator('#proj-sel, select[data-act-change="proj-switch"]').count(), 0, 'brak przełącznika projektów w programie');
+  // okna Ustawienia i Historia otwierają się i zamykają bez błędów
+  await mp.click('[data-act="history-open"]'); await mp.waitForSelector('.hist'); await mp.keyboard.press('Escape'); await mp.waitForSelector('.hist', { state: 'detached' });
+  await mp.click('[data-act="settings-open"]'); await mp.waitForSelector('input[data-bind="meta.title"]'); await mp.keyboard.press('Escape'); await mp.waitForSelector('.modal', { state: 'detached' });
   await sleep(600); await shot(mp, '4-main');
 
   /* ===== 3. zmiana w projekcie i natychmiastowe zamknięcie okna (zapis nie może zginąć) ===== */

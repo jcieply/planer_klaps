@@ -10,12 +10,12 @@ import { setUI, toast, useUI } from '../state/ui';
 import { AUTO_SNAPSHOT_MIN, restoreSnapshot, snapshotNow } from '../state/actions';
 import { usePrefs } from '../state/prefs';
 import { plN } from '../lib/format';
-import { Btn, Icon, Modal, cx } from '../components/ui';
+import { Btn, Deferred, Icon, Modal, cx } from '../components/ui';
 import { confirmTwice } from '../components/common';
 
 export function History() {
   const open = useUI((s) => s.history);
-  return <Modal open={open} onClose={() => setUI((s) => { s.history = false; })} act="history-close" title={T('Historia wersji')} className="narrow-w">{open ? <HistoryBody /> : null}</Modal>;
+  return <Modal open={open} onClose={() => setUI((s) => { s.history = false; })} act="history-close" title={T('Historia wersji')} className="narrow-w">{open ? <Deferred minHeight={260}><HistoryBody /></Deferred> : null}</Modal>;
 }
 
 function HistoryBody() {

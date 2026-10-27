@@ -78,3 +78,20 @@
 .dpr-row .seg button:hover { opacity: 1; }
 .strip.bd > div:last-child { white-space: nowrap; padding-left: 2px; padding-right: 2px; }
 .strip.bd .shot-ok { width: 13px; height: 13px; font-size: 9px; margin-left: 2px; }
+
+/* panel użytkownika w menu bocznym (aplikacja na komputer) */
+.side-user { min-height: 76px; }
+.who { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.who-av { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-fg); border: 1px solid var(--accent-line); font-family: var(--f-display); font-weight: 700; font-size: 14px; letter-spacing: .04em; }
+.who-t { min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.who-t small { font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+.who-t b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.who-t em { font-style: normal; font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* okna: wejście animuje przeglądarka (CSS, na procesorze graficznym), więc ciężkie rysowanie treści nie zacina animacji */
+@keyframes modal-in { from { opacity: 0; transform: translate(-50%, -47%) scale(.975); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+.modal { animation: modal-in .24s var(--ease) both; will-change: transform, opacity; }
+.modal[data-state="closed"] { animation: none; }
+@media (prefers-reduced-motion: reduce) { .modal { animation: none; } }
+.modal-skel { display: grid; place-items: center; }
+.side-user .side-tags { margin-top: 8px; }

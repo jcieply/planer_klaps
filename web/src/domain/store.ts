@@ -2,7 +2,7 @@
    Kolejność: aplikacja na komputer/iPhone (pliki) → baza artefaktu claude.ai → IndexedDB → localStorage → pamięć.
    Projekt zapisuje się w trzech częściach: plan (bez tekstu scenariusza), tekst scenariusza i mapki.
    Projekt zaszyfrowany (E2E) zapisuje części jako koperty AES-GCM – wszędzie leżą wyłącznie szyfrogramy. */
-import { idbTable, openIdb } from './idb';
+import { idbBatch, idbTable, openIdb } from './idb';
 import { T } from './i18n';
 import { Core } from './core';
 import { Vault } from './vault';
@@ -75,8 +75,13 @@ function claudeDbSnaps(db: any): SnapBackend {
   };
 }
 function idbSnaps(db: IDBDatabase): SnapBackend {
-  const t = idbTable<SnapRow>(db, 'snapshots');
-  return { list: async (pid) => (await t.byIndex('pid', pid)).map(strip), put: (row) => t.put(row), get: async (id) => (await t.get(id)) || null, del: (id) => t.del(id) };
+  const meta = idbTable<SnapMeta>(db, 'snapmeta'), full = idbTable<SnapRow>(db, 'snapshots');
+  return {
+    list: (pid) => meta.byIndex('pid', pid),
+    put: (row) => idbBatch(db, [{ store: 'snapshots', put: row }, { store: 'snapmeta', put: strip(row) }]),
+    get: async (id) => (await full.get(id)) || null,
+    del: (id) => idbBatch(db, [{ store: 'snapshots', del: id }, { store: 'snapmeta', del: id }]),
+  };
 }
 function memorySnaps(): SnapBackend {
   const m = new Map<string, SnapRow>();

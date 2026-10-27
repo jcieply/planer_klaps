@@ -1356,3 +1356,4 @@ I18N.add({
 "Operator": "Camera operator",
 "Scenarzysta": "Screenwriter"
 });
+I18N.add({ "Zalogowano jako": "Signed in as" });

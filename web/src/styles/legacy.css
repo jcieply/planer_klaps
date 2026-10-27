@@ -334,7 +334,7 @@ table.tbl .inp:focus { background: var(--surface); }
 .opt span { color: var(--ink-2); font-size: 12.5px; }
 
 /* --- szuflada sceny i okna --- */
-.scrim { position: fixed; inset: 0; background: rgba(6,6,8,.55); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); z-index: 60; }
+.scrim { position: fixed; inset: 0; background: rgba(6,6,8,.6); z-index: 60; }
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(620px, 100%); background: var(--surface); z-index: 61; box-shadow: var(--shadow-lg); border-left: 1px solid var(--line); display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 .drawer-h { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; background: var(--sb, var(--surface-2)); color: var(--s-ink); }
 .drawer-h .ttl { font-family: var(--f-display); font-size: 25px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; line-height: 1.05; flex: 1; min-width: 0; }

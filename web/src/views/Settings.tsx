@@ -9,7 +9,7 @@ import { mutate, useProject } from '../state/project';
 import { setUI, toast, useUI } from '../state/ui';
 import { usePrefs } from '../state/prefs';
 import { cancelSave, deleteProject, doSave, lockCurrent, newProject, openProject, unlockLocked } from '../state/actions';
-import { BlurInput, Btn, Field, Icon, Modal, Seg, TextInput, cx } from '../components/ui';
+import { BlurInput, Btn, Deferred, Field, Icon, Modal, Seg, TextInput, cx } from '../components/ui';
 import { useSyncStatus } from './Shell';
 import { DocLang } from './Misc';
 import { desktop } from '../desktop/bridge';
@@ -18,7 +18,7 @@ import { backToLauncher } from '../desktop/install';
 export function Settings() {
   const open = useUI((s) => s.settings);
   const st = useProject((s) => s.st);
-  return <Modal open={open && !!st} onClose={() => setUI((s) => { s.settings = false; s.confirmDel = false; })} act="settings-close" title={T('Ustawienia')}>{st ? <SettingsBody /> : null}</Modal>;
+  return <Modal open={open && !!st} onClose={() => setUI((s) => { s.settings = false; s.confirmDel = false; })} act="settings-close" title={T('Ustawienia')}>{st ? <Deferred minHeight={620}><SettingsBody /></Deferred> : null}</Modal>;
 }
 
 function SettingsBody() {

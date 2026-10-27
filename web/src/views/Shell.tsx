@@ -1,4 +1,6 @@
 /* Powłoka aplikacji: menu boczne (zwijane w zakładkach roboczych), pasek górny, dolne zakładki na telefonie, komunikaty. */
+import { desktop } from '../desktop/bridge';
+import { initialsOf, useDesktopProfile } from '../desktop/profile';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AnimatePresence, m as motion } from 'motion/react';
 import * as Tooltip from '@radix-ui/react-tooltip';
@@ -72,6 +74,7 @@ function Side() {
   useProject((s) => s.projects); // znacznik E2E po zmianie szyfrowania
   const sidePin = usePrefs((p) => p.sidePin), setPrefs = usePrefs((p) => p.setPrefs);
   const cnt = useCounts();
+  const me = useDesktopProfile();
   const rail = tab !== 'home' && !sidePin;
   const enc = Store.isEncrypted(pid);
   const initials = (st.meta.title || T('Bez tytułu')).split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
@@ -85,8 +88,12 @@ function Side() {
   });
   return <aside className={cx('side', rail && 'rail')} aria-label={T('Moduły projektu')}><div className="side-in">
     <div className="side-brand"><Icon n="clap" /><span className="fade">Klaps</span><small className="fade">{T('Planer')}</small></div>
-    <div className="side-proj"><span className="side-pj" aria-hidden="true">{initials}</span><div className="fade side-pf"><ProjectSelect id="proj-sel" label />
+    {desktop() ? <div className="side-proj side-user"><span className="side-pj" aria-hidden="true">{initialsOf(me?.name || '')}</span><div className="fade side-pf">
+      <div className="who" data-id="who"><span className="who-av" aria-hidden="true">{initialsOf(me?.name || '')}</span>
+        <span className="who-t"><small>{T('Zalogowano jako')}</small><b>{me ? me.name : '…'}</b><em>{[me?.role, T('Konto lokalne')].filter(Boolean).join(' · ')}</em></span></div>
       <div className="side-tags">{st.demo && <span className="tag" title={T('Projekt demonstracyjny z przykładowym scenariuszem')}>{T('Przykład')}</span>}{enc && <button type="button" className="tag tag-enc" data-act="sec-open" title={T('Projekt zaszyfrowany end-to-end')} onClick={() => setUI((s) => { s.settings = true; })}><Icon n="shield" /> E2E</button>}</div></div></div>
+    : <div className="side-proj"><span className="side-pj" aria-hidden="true">{initials}</span><div className="fade side-pf"><ProjectSelect id="proj-sel" label />
+      <div className="side-tags">{st.demo && <span className="tag" title={T('Projekt demonstracyjny z przykładowym scenariuszem')}>{T('Przykład')}</span>}{enc && <button type="button" className="tag tag-enc" data-act="sec-open" title={T('Projekt zaszyfrowany end-to-end')} onClick={() => setUI((s) => { s.settings = true; })}><Icon n="shield" /> E2E</button>}</div></div></div>}
     <nav className="side-nav" aria-label={T('Widoki')}>{items}</nav>
     <div className="side-foot"><div className="side-st"><SaveBadge /><SyncBadge /></div>
       <button type="button" className="side-pin" data-act="side-pin" aria-pressed={sidePin} title={sidePin ? T('Zwijaj menu w zakładkach roboczych') : T('Przypnij rozwinięte menu')} aria-label={sidePin ? T('Zwijaj menu w zakładkach roboczych') : T('Przypnij rozwinięte menu')} onClick={() => setPrefs({ sidePin: !sidePin })}><Icon n={sidePin ? 'unpin' : 'pinSide'} /></button></div>
@@ -106,7 +113,7 @@ function Topbar() {
   return <header className="topbar"><div className="topbar-in gut">
     <div className="m-brand"><Icon n="clap" /></div>
     <div className="crumb"><span className="crumb-p">{st.meta.title || T('Bez tytułu')}</span><span className="crumb-s">/</span><b>{cur ? T(cur[1]) : ''}</b></div>
-    <div className="proj m-only"><ProjectSelect id="proj-sel-m" /></div>
+    {!desktop() && <div className="proj m-only"><ProjectSelect id="proj-sel-m" /></div>}
     <div className="actions">
       <div className="undo-g">
         <Tip label={T('Cofnij') + ' (Ctrl+Z)'}><Btn v="ghost" className="icon" act="undo" aria-label={T('Cofnij')} disabled={!canUndo} onClick={() => undo()}><Icon n="undo" /></Btn></Tip>

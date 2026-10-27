@@ -1,5 +1,5 @@
 /* Podstawowe elementy interfejsu: ikony, pola edycji (zapis przy pisaniu z łączeniem zmian), przyciski, okna. */
-import { forwardRef, useEffect, useRef, useState, type ReactNode, type InputHTMLAttributes, type TextareaHTMLAttributes, type ButtonHTMLAttributes } from 'react';
+import { forwardRef, startTransition, useEffect, useRef, useState, type ReactNode, type InputHTMLAttributes, type TextareaHTMLAttributes, type ButtonHTMLAttributes } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { AnimatePresence, m as motion } from 'motion/react';
@@ -140,6 +140,13 @@ export function Datalist({ id, items }: { id: string; items: string[] }) {
   return <datalist id={id}>{items.map((x) => <option key={x} value={x} />)}</datalist>;
 }
 
+/** treść ciężkiego okna rysuje się po pierwszej klatce i w przerywalnym trybie (startTransition) – animacja wejścia nie czeka na treść */
+export function Deferred({ children, minHeight = 320 }: { children: ReactNode; minHeight?: number }) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => { const id = requestAnimationFrame(() => startTransition(() => setReady(true))); return () => cancelAnimationFrame(id); }, []);
+  return ready ? <>{children}</> : <div className="card-b modal-skel" style={{ minHeight }} aria-busy="true"><span className="spin" aria-hidden="true" /></div>;
+}
+
 /* ---------- okna (Radix Dialog + animacje Motion) ---------- */
 const ease = [0.2, 0.7, 0.2, 1] as const;
 export function Modal({ open, onClose, title, className, children, act = 'modal-close', headExtra, describedBy }: { open: boolean; onClose: () => void; title: ReactNode; className?: string; children: ReactNode; act?: string; headExtra?: ReactNode; describedBy?: string }) {
@@ -147,7 +154,7 @@ export function Modal({ open, onClose, title, className, children, act = 'modal-
     <AnimatePresence>{open && <Dialog.Portal forceMount>
       <Dialog.Overlay asChild forceMount><motion.div className="scrim" data-act={act} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} /></Dialog.Overlay>
       <Dialog.Content asChild forceMount aria-describedby={describedBy}>
-        <motion.div className={cx('modal', className)} style={{ x: '-50%', y: '-50%' }} initial={{ opacity: 0, scale: 0.97, y: '-47%' }} animate={{ opacity: 1, scale: 1, y: '-50%' }} exit={{ opacity: 0, scale: 0.98, y: '-48%', transition: { duration: 0.14 } }} transition={{ duration: 0.26, ease }}>
+        <motion.div className={cx('modal', className)} exit={{ opacity: 0, transition: { duration: 0.12 } }}>
           <div className="card-h"><Dialog.Title asChild><h2>{title}</h2></Dialog.Title>{headExtra}<Btn sm style={{ marginLeft: 'auto' }} act={act} icon="x" onClick={onClose} aria-label={T('Zamknij')}>{T('Zamknij')}</Btn></div>
           {children}
         </motion.div>

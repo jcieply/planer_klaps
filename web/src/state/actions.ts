@@ -145,6 +145,12 @@ export async function deleteProject() {
   const list = P().projects.filter((p) => p.id !== id);
   P().setProjects(list);
   setUI((s) => { s.settings = false; s.confirmDel = false; });
+  if (desktop()) {
+    // aplikacja na komputer: po usunięciu wracamy do okna startowego (bez ponownego zapisu usuniętego projektu)
+    cancelSave(); P().load(null as any, null as any); clearHistory();
+    await desktop()!.launcher.show();
+    return;
+  }
   if (list.length) await openProject(list[0].id); else await newProject(T('Nowy projekt'));
   toast(T('Projekt został usunięty.'));
 }
