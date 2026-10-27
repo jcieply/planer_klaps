@@ -59,3 +59,8 @@ registerSource({
   to jest miejsce na zapis do chmury. Praca równoczesna wymaga jeszcze scalania zmian na poziomie pól
   (dziś synchronizacja ostatni-zapis-wygrywa, `web/src/domain/sync.js`).
 * Zawsze zostaje tryb offline: projekty lokalne działają bez konta i bez internetu.
+
+
+## Chmura (od 2.3)
+
+Dostawcy `cloud` (tożsamość i źródło projektów) rejestrują się w `web/src/launcher/cloudServices.ts`, gdy program ma wbudowany adres chmury. Opis, konfiguracja Supabase i testy: [CHMURA.md](CHMURA.md).

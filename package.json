@@ -1,7 +1,7 @@
 {
   "name": "klaps-planer",
   "productName": "Klaps Planer",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Klaps Planer – planowanie zdjęć filmowych: rozpiska, kalendarzówka, plan pracy, shotlista, ekipa, raport dzienny (aplikacja na komputer)",
   "main": "electron/main.js",
   "author": "Klaps Planer",
