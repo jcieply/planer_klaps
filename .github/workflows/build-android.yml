@@ -1,0 +1,37 @@
+name: Build Android
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, 'android-*']
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+      - run: npm install --no-audit --no-fund
+      - run: npm install --no-audit --no-fund
+        working-directory: web
+      - name: Program dla Androida (web/dist-android) i synchronizacja z projektem natywnym
+        run: npm run prepare-android 2>&1 | tee build.log; test ${PIPESTATUS[0]} -eq 0
+        env:
+          VITE_SUPABASE_URL: ${{ vars.KLAPS_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.KLAPS_SUPABASE_ANON_KEY }}
+      - name: APK (debug, do instalacji poza sklepem)
+        working-directory: web/android
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon 2>&1 | tee ../../build.log; test ${PIPESTATUS[0]} -eq 0
+      - name: Nazwa pliku
+        run: |
+          V=$(node -p "require('./package.json').version")
+          mkdir -p out && cp web/android/app/build/outputs/apk/debug/app-debug.apk "out/Klaps-Planer-$V-android.apk"
+      - name: Show log on failure
+        if: failure()
+        run: echo "::error::$(tail -c 2500 build.log | tr '\n' '|' | tr '%' ' ')"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Klaps-Planer-Android
+          path: out/*.apk

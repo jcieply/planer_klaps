@@ -1614,3 +1614,15 @@ I18N.add({
 "Rewizja (kolor stron)": "Revision (page colour)",
 "Analizuję scenariusz…": "Analysing the script…"
 });
+I18N.add({
+"licencja aktywna": "licence active",
+"Wpisz klucz licencyjny.": "Enter the licence key.",
+"To nie wygląda na klucz Klaps Planer. Klucz ma postać KLAPS-RRRR-XXXX-XXXX.": "This does not look like a Klaps Planer key. The key has the form KLAPS-YYYY-XXXX-XXXX.",
+"Odmowa dostępu: ten klucz licencyjny jest nieprawidłowy. Sprawdź, czy został przepisany bez błędów.": "Access denied: this licence key is not valid. Check that it was typed without mistakes.",
+"Aktywacja programu": "Activate the app",
+"Wpisz klucz licencyjny, który otrzymałeś razem z programem. Na tym urządzeniu podajesz go tylko raz.": "Enter the licence key you received with the app. You only need to enter it once on this device.",
+"Klucz zapisany na tym urządzeniu nie jest już ważny. Wpisz nowy klucz.": "The key saved on this device is no longer valid. Enter a new key.",
+"Klucz licencyjny": "Licence key",
+"Aktywuj": "Activate",
+"Nie masz klucza? Skontaktuj się z osobą, od której otrzymałeś program.": "No key? Contact the person you received the app from."
+});

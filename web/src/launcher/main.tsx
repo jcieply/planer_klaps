@@ -11,9 +11,10 @@ import { Launcher } from './Launcher';
 import { installDefaultServices } from './services';
 import { installCloudServices } from './cloudServices';
 
-installDefaultServices();
-installCloudServices();
 const start = async () => {
+  if (import.meta.env.MODE === 'android') (await import('../android/bridge')).installAndroid();
+  installDefaultServices();
+  installCloudServices();
   if (usePrefs.getState().lang === 'en') await ensureEn();
   createRoot(document.getElementById('app')!).render(<StrictMode><LazyMotion features={domAnimation} strict><Launcher /></LazyMotion></StrictMode>);
 };

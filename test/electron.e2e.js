@@ -34,7 +34,19 @@ async function closeApp(app) {
   let app = await start();
   let lc = await pageBy(app, /launcher\.html/);
   watch(lc, 'launcher');
+  /* ===== 0. licencja: bez klucza nic się nie otwiera, błędny klucz – odmowa, poprawny – zapamiętany ===== */
+  await lc.waitForSelector('#lc-key', { timeout: 20000 });
+  const refused = await lc.evaluate(() => window.klapsDesktop.launcher.launch({ type: 'create', source: 'local', title: 'Bez licencji', template: 'empty' }));
+  assert.strictEqual(refused.ok, false, 'bez licencji proces główny nie otwiera projektu');
+  assert.strictEqual(app.windows().length, 1);
+  await sleep(800); await shot(lc, '0-license');
+  await lc.fill('#lc-key', 'KLAPS-2026-AAAA-PROD'); await lc.click('[data-act="license-go"]');
+  await lc.waitForSelector('#lc-lic-err');
+  assert.ok(/Odmowa dostępu/.test(await lc.textContent('#lc-lic-err')), 'błędny klucz: odmowa dostępu');
+  assert.ok(!fs.existsSync(path.join(data, 'license.json')), 'błędny klucz nie zapisuje aktywacji');
+  await lc.fill('#lc-key', 'klaps-2026-7q4m-prod'); await lc.click('[data-act="license-go"]');
   await lc.waitForSelector('#lc-name', { timeout: 20000 });
+  assert.ok(fs.existsSync(path.join(data, 'license.json')), 'aktywacja zapisana w folderze danych programu');
   const size = await lc.evaluate(() => [innerWidth, innerHeight]);
   assert.deepStrictEqual(size, [880, 540], 'małe okno startowe 880×540, jest ' + size);
   assert.strictEqual(app.windows().length, 1, 'na starcie tylko okno startowe');
@@ -94,6 +106,7 @@ async function closeApp(app) {
   app = await start();
   lc = await pageBy(app, /launcher\.html/); watch(lc, 'launcher');
   await lc.waitForSelector('.lc-proj', { timeout: 20000 });
+  assert.strictEqual(await lc.locator('#lc-key').count(), 0, 'drugie uruchomienie nie pyta o klucz');
   assert.strictEqual((await lc.textContent('.lc-hello h1')).trim(), 'Cześć, Jan Kowalski');
   assert.ok((await lc.textContent('.lc-proj')).includes('Zmieniony film'));
   await sleep(600); await shot(lc, '5-home-list');

@@ -172,3 +172,50 @@ body { background: var(--bg); user-select: none; -webkit-user-select: none; curs
 .lc-keybox { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); -webkit-app-region: no-drag; }
 .lc-keybox h4 { margin: 0 0 6px; font-size: 13px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); }
 .lc-ok { color: var(--ok); margin: 6px 0; }
+
+/* ---------- aktywacja (klucz licencyjny) ---------- */
+.lc-lic { gap: 16px; }
+.lc-lic-ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: rgba(242,194,48,.14); color: var(--accent); }
+.lc-lic-ic .ic svg { width: 22px; height: 22px; }
+.lc-key { font-family: var(--f-mono); font-size: 17px; letter-spacing: .08em; text-transform: uppercase; height: 48px; }
+.lc-key::placeholder { letter-spacing: .08em; opacity: .45; }
+.lc-key.bad { border-color: var(--bad); box-shadow: 0 0 0 3px var(--bad-soft); animation: lc-shake .32s ease-in-out; }
+@keyframes lc-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+.lc-lic-go { align-items: center; justify-content: space-between; gap: 12px; }
+.lc-note { margin: 0; color: var(--ink-3); font-size: 12.5px; }
+@media (prefers-reduced-motion: reduce) { .lc-key.bad { animation: none; } }
+
+/* ---------- telefon i wąskie okna (Android): panel marki jako nagłówek, treść przewijana, cele dotyku ≥ 44 px ---------- */
+@media (max-width: 720px) {
+  html, body { overflow: hidden; }
+  .lc { height: 100dvh; grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .lc-brand { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: calc(env(safe-area-inset-top, 0px) + 14px) 18px 14px; }
+  .lc-brand::before { inset: -60% -20% auto 30%; height: 220%; opacity: .7; }
+  .lc-film, .lc-tag, .lc-grow { display: none; }
+  .lc-logo { width: 46px !important; height: auto !important; }
+  .lc-word { margin-top: 0; }
+  .lc-word b { font-size: 26px; }
+  .lc-word span { font-size: 12px; letter-spacing: .4em; }
+  .lc-ver { margin: 0 0 0 auto; align-self: center; }
+  .lc-hello { flex-basis: 100%; margin-top: 8px; }
+  .lc-hello h1 { font-size: 23px; margin: 4px 0 10px; }
+  .lc-main { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  .lc-main::before { display: none; }
+  .lc-pane { position: relative; inset: auto; min-height: 100%; padding: 20px 16px calc(env(safe-area-inset-bottom, 0px) + 20px); }
+  .lc-x { display: none; }
+  .lc h2 { font-size: 24px; }
+  .lc-form { max-width: none; padding-right: 0; margin: 0; }
+  .lc-two { grid-template-columns: 1fr; }
+  .lc-inp { height: 48px; font-size: 16px; }
+  .lc-btn { min-height: 44px; }
+  .lc-btn.lg { width: 100%; }
+  .lc-lic-go { flex-direction: column-reverse; align-items: stretch; }
+  .lc-lic-go .lc-seg { align-self: flex-end; }
+  .lc-prefs { flex-direction: column; align-items: stretch; }
+  .lc-seg button { min-height: 40px; }
+  .lc-ico { width: 40px; height: 40px; }
+  .lc-list-w { overflow: visible; margin: 12px 0 0; padding: 0; }
+  .lc-proj { padding: 12px 10px; min-height: 56px; }
+  .lc-modal { padding: 0; place-items: end stretch; }
+  .lc-dlg, .lc-dlg.wide { width: 100%; max-height: 92dvh; border-radius: 16px 16px 0 0; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); }
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Klaps Planer</string>
+    <string name="title_activity_main">Klaps Planer</string>
+    <string name="package_name">pl.klaps.planer</string>
+    <string name="custom_url_scheme">pl.klaps.planer</string>
+</resources>

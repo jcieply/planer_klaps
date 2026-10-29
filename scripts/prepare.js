@@ -1,10 +1,12 @@
-/* Buduje katalog app/ dla Electrona: program i okno startowe (web/ → vite, tryb „desktop”) + pdf.js i czcionki lokalnie (offline). */
+/* Buduje katalog app/ dla Electrona: program i okno startowe (web/ → vite, tryb „desktop”) + pdf.js i czcionki lokalnie (offline).
+   Z parametrem --android buduje web/dist-android/ dla Capacitora (tryb „android”, ten sam zestaw plików). */
 const fs = require('fs');
 const path = require('path');
 const { execFileSync, execSync } = require('child_process');
 const root = path.join(__dirname, '..');
 const web = path.join(root, 'web');
-const out = path.join(root, 'app');
+const ANDROID = process.argv.includes('--android');
+const out = ANDROID ? path.join(root, 'web', 'dist-android') : path.join(root, 'app');
 const nm = (p) => path.join(root, 'node_modules', p);
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
@@ -17,7 +19,7 @@ fs.mkdirSync(path.join(out, 'fonts'), { recursive: true });
 fs.mkdirSync(path.join(out, 'vendor', 'pdfjs'), { recursive: true });
 
 const vite = path.join(web, 'node_modules', 'vite', 'bin', 'vite.js');
-execFileSync(process.execPath, [vite, 'build', '--mode', 'desktop'], { cwd: web, env: Object.assign({}, process.env, { DESKTOP_OUT: out }), stdio: 'inherit' });
+execFileSync(process.execPath, [vite, 'build', '--mode', ANDROID ? 'android' : 'desktop'], { cwd: web, env: Object.assign({}, process.env, { DESKTOP_OUT: out }), stdio: 'inherit' });
 // vite czyści katalog wyjściowy – odtwarzamy podkatalogi
 fs.mkdirSync(path.join(out, 'fonts'), { recursive: true });
 fs.mkdirSync(path.join(out, 'vendor', 'pdfjs'), { recursive: true });
@@ -44,5 +46,5 @@ for (const [pkg, weights] of want) {
   }
 }
 fs.writeFileSync(path.join(out, 'fonts', 'fonts.css'), css);
-for (const f of ['index.html', 'launcher.html']) if (!fs.existsSync(path.join(out, f))) { console.error('Brak ' + f + ' w app/'); process.exit(1); }
-console.log('app/ gotowe:', fs.readdirSync(out).join(', '));
+for (const f of ['index.html', 'launcher.html']) if (!fs.existsSync(path.join(out, f))) { console.error('Brak ' + f + ' w ' + out); process.exit(1); }
+console.log(path.relative(root, out) + '/ gotowe:', fs.readdirSync(out).join(', '));

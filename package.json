@@ -1,7 +1,7 @@
 {
   "name": "klaps-planer",
   "productName": "Klaps Planer",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "description": "Klaps Planer – planowanie zdjęć filmowych: rozpiska, kalendarzówka, plan pracy, shotlista, ekipa, raport dzienny (aplikacja na komputer)",
   "main": "electron/main.js",
   "author": "Klaps Planer",
@@ -9,12 +9,13 @@
   "private": true,
   "scripts": {
     "prepare-app": "node scripts/prepare.js",
+    "prepare-android": "node scripts/prepare.js --android && cd web && npx cap sync android",
     "start": "npm run prepare-app && electron .",
     "dev": "electron .",
     "dist": "npm run prepare-app && electron-builder --publish never",
     "dist:mac": "npm run prepare-app && electron-builder --mac dmg --publish never",
     "dist:win": "npm run prepare-app && electron-builder --win nsis --publish never",
-    "test": "node test/store.test.js && node test/profile.test.js && node test/secrets.test.js",
+    "test": "node test/store.test.js && node test/profile.test.js && node test/secrets.test.js && node test/license.test.js",
     "e2e": "node test/electron.e2e.js",
     "e2e:cloud": "node test/electron-cloud.e2e.js"
   },

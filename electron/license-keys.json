@@ -1,0 +1,8 @@
+{
+  "v": 1,
+  "salt": "klaps-license-v1",
+  "format": "KLAPS-RRRR-XXXX-TYP",
+  "keys": [
+    { "id": "test-2026", "label": "Klucz testowy 2026", "hash": "ef42f9851a30dd8fa043a05af72261295d559d70f3861575d235982b37529938" }
+  ]
+}

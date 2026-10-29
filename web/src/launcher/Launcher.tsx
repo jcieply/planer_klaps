@@ -5,13 +5,14 @@ import { T } from '../domain/i18n';
 import { ICONS } from '../lib/icons';
 import { plN } from '../lib/format';
 import { usePrefs } from '../state/prefs';
-import { desktop, type DesktopProfile } from '../desktop/bridge';
+import { desktop, type DesktopProfile, type LicenseStatus } from '../desktop/bridge';
+import { LicenseStep } from './License';
 import { Logo } from './Logo';
 import { cloudConfigured, currentUser, type CloudUser } from '../collab/cloud';
 import { AccountModal, Avatar, JoinModal, Manage } from './Cloud';
 import { allSources, launch, resolveAccount, type Account, type IdentityProvider, type ProjectEntry, type ProjectSource } from './services';
 
-type View = 'boot' | 'welcome' | 'home' | 'new' | 'manage';
+type View = 'boot' | 'license' | 'welcome' | 'home' | 'new' | 'manage';
 type Dlg = null | 'account' | 'join';
 const ic = (n: keyof typeof ICONS) => <span className="ic" aria-hidden="true" dangerouslySetInnerHTML={{ __html: ICONS[n] }} />;
 const ROLES = ['Reżyser', 'Producent', 'Kierownik produkcji', 'II reżyser', 'Asystent planu', 'Operator', 'Scenarzysta'];
@@ -43,6 +44,7 @@ export function Launcher() {
   const [tick, setTick] = useState(0);
   const [focusProject, setFocusProject] = useState<string | undefined>();
   const [error, setError] = useState('');
+  const [lic, setLic] = useState<LicenseStatus | null>(null);
   const d = desktop();
 
   const refresh = useCallback(async () => {
@@ -54,7 +56,16 @@ export function Launcher() {
     setTick((n) => n + 1);
     return p;
   }, [d]);
-  useEffect(() => { void refresh().then((p) => setView(p ? 'home' : 'welcome')).catch(() => setView('welcome')); }, [refresh]);
+  // najpierw licencja (na nowym urządzeniu), potem powitanie albo lista projektów
+  const afterLicense = useCallback(() => refresh().then((p) => setView(p ? 'home' : 'welcome')).catch(() => setView('welcome')), [refresh]);
+  useEffect(() => {
+    void (async () => {
+      const s: LicenseStatus = d?.license ? await d.license.status().catch(() => ({ active: false })) : { active: true };
+      setLic(s);
+      if (!s.active) { setView('license'); return; }
+      await afterLicense();
+    })();
+  }, [d, afterLicense]);
 
   const open = async (intent: Parameters<typeof launch>[0], label: string) => {
     setError(''); setOpening(label);
@@ -62,7 +73,7 @@ export function Launcher() {
     catch (e: any) { setOpening(null); setError(e && e.message ? e.message : String(e)); }
   };
   const calm = useReducedMotion();
-  const first = view === 'welcome';
+  const first = view === 'welcome' || view === 'license';
 
   return <div className={'lc' + (opening ? ' opening' : '')} lang={lang}>
     <aside className="lc-brand">
@@ -79,13 +90,14 @@ export function Launcher() {
         </m.div> : <m.p key="tag" className="lc-tag" initial={calm ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ delay: 0.3 }}>
           {T('Planowanie zdjęć: od scenariusza do planu dnia.')}</m.p>}
       </AnimatePresence>
-      <div className="lc-ver">v{d?.version || ''}</div>
+      <div className="lc-ver">v{d?.version || ''}{lic?.active && d?.license ? <span title={lic.hint || ''}> · {T('licencja aktywna')}</span> : null}</div>
     </aside>
 
     <main className="lc-main">
       <button type="button" className="lc-x" aria-label={T('Zamknij')} data-act="launcher-quit" onClick={() => void d?.launcher.quit()}>{ic('x')}</button>
       <AnimatePresence mode="wait" initial={false}>
         {opening ? <Opening key="op" label={opening} />
+          : view === 'license' ? <m.div key="l" className="lc-pane" {...fade(calm)}><LicenseStep status={lic} onDone={async () => { setLic(await d!.license!.status()); await afterLicense(); }} /></m.div>
           : view === 'welcome' ? <m.div key="w" className="lc-pane" {...fade(calm)}><Welcome onDone={async () => { await refresh(); setView('home'); }} /></m.div>
           : view === 'new' ? <m.div key="n" className="lc-pane" {...fade(calm)}><NewProject cloudUser={cloudUser} initialSource={srcId} onBack={() => { setError(''); setView('home'); }} onCreate={(title, template, source) => void open({ type: 'create', source, title, template }, title)} error={error} /></m.div>
           : view === 'manage' && cloudUser ? <m.div key="m" className="lc-pane" {...fade(calm)}><Manage me={cloudUser} lang={lang} initial={focusProject} onBack={() => { setView('home'); setTick((n) => n + 1); }} onJoin={() => setDlg('join')} onOpen={(p) => void open({ type: 'open', source: 'cloud', id: p.id }, p.title)} /></m.div>

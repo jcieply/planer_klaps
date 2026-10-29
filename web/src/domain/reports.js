@@ -420,7 +420,7 @@ const Reports = (() => {
       const lunch = Core.lunchOf(st, stDay);
       callBand(T('PLAN PRACY · DZIEŃ {n}', { n: d.no }), Core.fmtDatePL(d.date), Core.keyPeople(st));
       const scs = Core.sheetScenes(st, stDay);
-      const info = [[T('Zbiórka ekipy'), call, 1, 'big'], [T('Obiad'), lunch ? lunch.label : '', 1, true], [T('Przewidywany koniec'), times && times.known ? Core.clock(times.end) : '', 1], [T('Czas pracy'), times && times.known ? Core.fmtDur(times.work) : '', 1],
+      const info = [[T('Zbiórka ekipy'), call, 1, 'big'], [T('Obiad'), lunch ? lunch.label : '', 1, 'big'], [T('Przewidywany koniec'), times && times.known ? Core.clock(times.end) : '', 1], [T('Czas pracy'), times && times.known ? Core.fmtDur(times.work) : '', 1],
         [T('Sceny w planie'), `${scs.length} · ${Core.fmtEighths(scs.reduce((a, s) => a + s.eighths, 0))} ${T('str.')}`, 1], [T('Wschód słońca'), sh.sunrise, 1], [T('Zachód słońca'), sh.sunset, 1], [T('Pogoda'), sh.weather, 1],
         [T('Szpital / pogotowie'), sh.hospital, 4]];
       const iw = CW / 4;
@@ -430,7 +430,6 @@ const Reports = (() => {
       info.forEach(([lab, val, span, hl]) => {
         if (col + span > 4) { ctx.y += rowMax; col = 0; rowMax = 0; }
         const x = MX + col * iw;
-        if (hl === true && val) ctx.page.rect(x + 1, ctx.y + 1, iw * span - 4, 26, { fill: C.warn });
         ctx.page.text(x + 4, ctx.y + 8, lab.toUpperCase(), { size: 6.6, bold: true, color: C.mute });
         const ls = doc.wrap(val || '—', iw * span - 12, hl ? 12 : 9).slice(0, 3);
         ls.forEach((ln, k) => ctx.page.text(x + 4, ctx.y + (hl ? 21 : 19) + k * 11, ln, hl ? { size: 12, bold: true, color: val ? C.ink : C.mute } : { size: 9, color: val ? C.ink : C.mute }));
@@ -988,7 +987,7 @@ const Reports = (() => {
         info.splice(1, 0, [T('Obiad'), lunch ? lunch.label : '']);
         const people = [['DIR', kp.dir], ['DOP', kp.dop], ['PROD', kp.prod]].filter((x) => x[1]).map((x) => x[0] + ' ' + x[1]).join('   ·   ');
         if (people) info.unshift([T('Kluczowi twórcy'), people]);
-        info.forEach((kv) => { const hl = kv[0] === T('Obiad') && kv[1]; sh.set(r, 1, kv[0], { b: true, sz: 9, color: '5C6670' }); sh.merge(r, 1, r, 3); sh.set(r, 4, kv[1] || '—', hl ? { sz: 12, b: true, bg: 'FFF0D3' } : { sz: 10, wrap: true }); sh.merge(r, 4, r, N); r++; });
+        info.forEach((kv) => { const hl = kv[0] === T('Obiad') && kv[1]; sh.set(r, 1, kv[0], { b: true, sz: 9, color: '5C6670' }); sh.merge(r, 1, r, 3); sh.set(r, 4, kv[1] || '—', hl ? { sz: 12, b: true } : { sz: 10, wrap: true }); sh.merge(r, 4, r, N); r++; });
         r++;
         const section = (t) => { for (let c = 1; c <= N; c++) sh.set(r, c, null, { bg: '26323B' }); sh.set(r, 1, t.toUpperCase(), { b: true, color: 'FFFFFF', bg: '26323B', sz: 10 }); sh.merge(r, 1, r, N); sh.rowHeight(r, 18); r++; };
         const head = (arr, spans) => { let c = 1; arr.forEach((h, i) => { sh.set(r, c, h, hStyle); const sp = (spans && spans[i]) || 1; for (let k = 1; k < sp; k++) sh.set(r, c + k, null, hStyle); if (sp > 1) sh.merge(r, c, r, c + sp - 1); c += sp; }); r++; };

@@ -7,6 +7,8 @@ const store = require('./store');
 const profile = require('./profile');
 const intents = require('./intent');
 const secretsLib = require('./secrets');
+const license = require('./license');
+const licensed = () => { try { return license.status(dataDir()).active; } catch (e) { return false; } };
 
 // katalogi można podmienić zmiennymi środowiskowymi (testy nie dotykają prawdziwych danych użytkownika)
 if (process.env.KLAPS_DATA_DIR) app.setPath('userData', process.env.KLAPS_DATA_DIR);
@@ -64,6 +66,8 @@ function readState() {
 function writeState(b) { try { fs.writeFileSync(stateFile(), JSON.stringify(b)); } catch (e) { /* brak */ } }
 
 function openMain(intent) {
+  // bez aktywnej licencji program nie otwiera żadnego projektu (okno startowe prosi o klucz)
+  if (!licensed()) return { ok: false, error: 'Brak aktywnej licencji. Wpisz klucz licencyjny w oknie startowym.' };
   if (alive(main)) { main.show(); main.focus(); return { ok: true }; }
   const st = readState();
   mainShown = false; allowMainClose = false;
@@ -207,6 +211,13 @@ function ipc() {
     try { return openMain(intent); } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   });
   handle('launcher:show', () => { void showLauncher(); });
+  handle('license:status', () => license.status(dataDir()));
+  handle('license:activate', async (_e, key) => {
+    const r = license.activate(dataDir(), key);
+    // spowolnienie zgadywania kluczy
+    if (!r.ok) await new Promise((res) => setTimeout(res, 700));
+    return r;
+  });
   handle('launcher:quit', () => { if (alive(launcher)) launcher.close(); else app.quit(); });
   handle('file:save', async (_e, name, data) => {
     const safe = String(name).replace(/[\\/:*?"<>|]/g, '_');
@@ -242,7 +253,7 @@ else {
     menu();
     // użytkownik wyłączył okno startowe i ma poprzedni projekt: otwieramy go od razu
     const p = profile.get(dataDir());
-    if (p && p.prefs.showLauncher === false && p.prefs.lastProject && !process.env.KLAPS_FORCE_LAUNCHER) {
+    if (p && p.prefs.showLauncher === false && p.prefs.lastProject && !process.env.KLAPS_FORCE_LAUNCHER && licensed()) {
       const known = store.list(projectsDir()).some((m) => m.id === p.prefs.lastProject);
       if (known) { openMain({ type: 'open', source: 'local', id: p.prefs.lastProject }); return; }
     }
