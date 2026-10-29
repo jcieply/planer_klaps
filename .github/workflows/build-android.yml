@@ -22,6 +22,8 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.KLAPS_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.KLAPS_SUPABASE_ANON_KEY }}
+      - name: Wtyczki Capacitora w projekcie natywnym
+        run: for p in app filesystem preferences share; do grep -q "capacitor-$p" web/android/capacitor.settings.gradle || { echo "::error::brak wtyczki $p"; exit 1; }; done
       - name: APK (debug, do instalacji poza sklepem)
         working-directory: web/android
         run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon 2>&1 | tee ../../build.log; test ${PIPESTATUS[0]} -eq 0
