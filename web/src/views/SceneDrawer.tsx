@@ -11,6 +11,7 @@ import { ActionSelect, AddInput, BlurInput, Btn, Datalist, Drawer, Field, Icon, 
 import { IES, TODS } from './Board';
 import { Thread } from './Comments';
 import { Editing } from './Presence';
+import { RevMark } from './Revisions';
 import { refScene } from '../collab/comments';
 
 export function SceneDrawer() {
@@ -56,6 +57,9 @@ function SceneBody({ sc, close }: { sc: Scene; close: () => void }) {
         <Field label={T('Obiekt (grupowanie)')}><TextInput value={sc.site} bind="scene.site" bid={sc.id} list="dl-sites" onCommit={(v) => mutate((x) => { const s = x.scenes.find((y) => y.id === sc.id); if (!s) return; s.site = v; const k = s.site || s.place; if (k && !x.sites[k]) x.sites[k] = Core.siteEntry(); })} /><Datalist id="dl-sites" items={sitesList(st)} /></Field>
         <Field label={T('Dzień zdjęciowy')}><Select value={sch ? sch.dayId : ''} data-act-change="scene-day" data-id={sc.id} options={[['', T('Nie zaplanowano')], ...st.days.filter((d) => d.kind === 'shoot').map((d) => [d.id, dayLabel(d, nums)] as [string, string]), ['__new', T('+ Nowy dzień zdjęciowy')]]}
           onChange={(v) => mutate((x) => { moveScenesToDay(x, [sc.id], v === '' ? '__pool' : v); })} /></Field>
+        {(st.revisions || []).length > 0 && <Field label={<>{T('Rewizja (kolor stron)')} <RevMark r={Core.sceneRev(st, sc)} short /></>}><Select value={sc.rev || ''} bind="scene.rev" bid={sc.id}
+          options={Core.revisions(st).map((r) => [r.id, Core.revName(r) + (r.date ? ' · ' + r.date : '')] as [string, string])}
+          onChange={(v) => upd((s) => { s.rev = v; })} /></Field>}
       </div>
       <Field label={T('Opis sceny')}><TextArea rows={3} value={sc.synopsis} bind="scene.synopsis" bid={sc.id} onCommit={(v) => upd((s) => { s.synopsis = v; })} /></Field>
       <div><span className="lbl">{T('Obsada w scenie')}</span>

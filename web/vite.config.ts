@@ -21,6 +21,8 @@ export default defineConfig(({ mode }) => {
   const desktop = mode === 'desktop';
   return {
     base: './',
+    // wątek roboczy (raporty, analiza scenariusza, tabele) – osadzony jako blob, więc działa tak samo w programie i w buildzie jednoplikowym
+    worker: { format: 'iife', plugins: () => [klapsPack()], rollupOptions: { output: { inlineDynamicImports: true } } },
     plugins: [react(), klapsPack(), ...(single ? [viteSingleFile({ removeViteModuleLoader: true })] : []), ...(desktop ? [localFonts()] : [])],
     build: {
       outDir: desktop ? (process.env.DESKTOP_OUT || 'dist-desktop') : mode === 'artifact' ? 'dist-artifact' : mode === 'e2e' ? 'dist-e2e' : 'dist',

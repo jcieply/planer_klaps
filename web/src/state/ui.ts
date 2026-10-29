@@ -5,13 +5,13 @@ import { immer } from 'zustand/middleware/immer';
 export type Tab = 'home' | 'import' | 'board' | 'schedule' | 'shotlist' | 'dood' | 'callsheet' | 'dpr' | 'cast' | 'crew' | 'sites' | 'transport' | 'budget' | 'export';
 export interface Toast { id: number; msg: string; kind?: '' | 'bad'; action?: { label: string; run: () => void } }
 export interface PwDialog { kind: 'enable' | 'change' | 'disable' | 'file'; obj?: any; err?: string; busy?: boolean }
-export interface ImpState { status: 'idle' | 'reading' | 'ready' | 'error'; file?: string; progress?: string; raw?: any; parsed?: any; keep?: boolean; error?: string }
+export interface ImpState { status: 'idle' | 'reading' | 'ready' | 'error'; file?: string; progress?: string; raw?: any; parsed?: any; keep?: boolean; error?: string; rev?: { color: string; label: string; date: string; note: string } }
 
 export interface UIState {
   tab: Tab;
   drawer: string | null;
   sel: string[];
-  f: { q: string; ie: string; tod: string; cast: string; site: string; plan: string };
+  f: { q: string; ie: string; tod: string; cast: string; site: string; plan: string; rev: string };
   pool: { q: string; sort: 'script' | 'site' | 'tod' };
   calView: 'days' | 'month';
   month: string | null;
@@ -50,7 +50,7 @@ export interface UIState {
 
 const initial: UIState = {
   tab: 'home', drawer: null, sel: [],
-  f: { q: '', ie: '', tod: '', cast: '', site: '', plan: '' },
+  f: { q: '', ie: '', tod: '', cast: '', site: '', plan: '', rev: '' },
   pool: { q: '', sort: 'script' },
   calView: 'days', month: null, autoplan: false, ap: { strategy: 'site', scope: 'unscheduled', separateNight: true, basis: 'pages', hours: '8', move: '15' },
   settings: false, confirmDel: false, imp: { status: 'idle' }, paste: false, pasteText: '',

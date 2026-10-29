@@ -7,6 +7,7 @@ import { goTab, setUI, useUI } from '../state/ui';
 import { applyImportNow, handlePaste, handleScriptFile, loadSample, reparse } from '../state/actions';
 import { kcls, plN, sitesList } from '../lib/format';
 import { Btn, Field, PageHead, Select, Stat, cx } from '../components/ui';
+import { RevisionImportFields, RevisionsCard } from './Revisions';
 
 export function Import() {
   const st = useProject((s) => s.st)!;
@@ -23,7 +24,8 @@ export function Import() {
   return <>{head}{err}
     {st.scenes.length > 0 && <div className="card" style={{ marginBottom: 16 }}><div className="card-h"><h2>{T('Aktualny scenariusz')}</h2><span className="muted small">{st.meta.scriptFile || ''}</span><div className="right" style={{ marginLeft: 'auto' }}><Btn act="tab" data-tab="board" onClick={() => goTab('board')}>{T('Przejdź do rozpiski')}</Btn></div></div>
       <div className="card-b"><div className="stats"><Stat v={st.scenes.length} l={T('scen')} /><Stat v={Core.fmtEighths(eighths)} l={T('stron')} /><Stat v={st.cast.length} l={T('postaci')} /><Stat v={sitesList(st).length} l={T('obiektów')} /></div>
-        <p className="muted small" style={{ margin: '12px 0 0' }}>{T('Nowa wersja scenariusza? Wczytaj ją poniżej. Klaps zachowa opisy, elementy i plan dla scen o tych samych numerach.')}</p></div></div>}
+        <p className="muted small" style={{ margin: '12px 0 0' }}>{T('Nowa wersja scenariusza? Wczytaj ją poniżej. Klaps zachowa opisy, elementy i plan dla scen o tych samych numerach, a zmienione sceny oznaczy kolorem nowej rewizji.')}</p></div></div>}
+    <RevisionsCard />
     <div className="imp-grid"><div>
       <div className={cx('drop', over && 'over')} id="drop-zone" data-drop-file=""
         onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setOver(true); } }}
@@ -64,13 +66,14 @@ function Review() {
     </div></div>
     <div className="card"><div className="card-h"><h3>{T('Ustawienia importu')}</h3></div><div className="card-b" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <Field label={T('Postacie wzmiankowane w opisach akcji')}>
-        <Select value={st.meta.castMode || 'all'} data-act-change="imp-castmode" options={[['all', T('Tak, także odmienione imiona (zalecane)')], ['caps', T('Tak, tylko zapisane WIELKIMI LITERAMI')], ['off', T('Nie, tylko postacie mówiące')]]} onChange={(v) => { mutate((s) => { s.meta.castMode = v; }); try { reparse(); } catch { /* zostaw */ } }} />
+        <Select value={st.meta.castMode || 'all'} data-act-change="imp-castmode" options={[['all', T('Tak, także odmienione imiona (zalecane)')], ['caps', T('Tak, tylko zapisane WIELKIMI LITERAMI')], ['off', T('Nie, tylko postacie mówiące')]]} onChange={(v) => { mutate((s) => { s.meta.castMode = v; }); void reparse().catch(() => undefined); }} />
         <span className="muted small">{T('Dzięki temu postać, która w scenie milczy, też trafia do planu.')}</span></Field>
       {isPdf ? <div className="small muted">{T('Strony PDF policzone z układu tekstu: {n} na stronę', { n: plN(ps.linesPerPage, 'wiersz', 'wiersze', 'wierszy') })}{ps.pageOffset ? ', ' + T('pominięto stronę tytułową') : ''}.</div>
-        : <Field label={T('Wiersze na stronę scenariusza')}><input className="inp" type="number" min={30} max={80} defaultValue={st.meta.linesPerPage || 55} data-act-change="imp-lpp" onBlur={(e) => { const n = Math.max(30, Math.min(80, +e.target.value || 55)); e.target.value = String(n); mutate((s) => { s.meta.linesPerPage = n; }); try { reparse(); } catch { /* zostaw */ } }} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} /><span className="muted small">{T('Ten plik nie ma układu stron, więc długość scen jest szacowana. Standard to 55 wierszy.')}</span></Field>}
+        : <Field label={T('Wiersze na stronę scenariusza')}><input className="inp" type="number" min={30} max={80} defaultValue={st.meta.linesPerPage || 55} data-act-change="imp-lpp" onBlur={(e) => { const n = Math.max(30, Math.min(80, +e.target.value || 55)); e.target.value = String(n); mutate((s) => { s.meta.linesPerPage = n; }); void reparse().catch(() => undefined); }} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} /><span className="muted small">{T('Ten plik nie ma układu stron, więc długość scen jest szacowana. Standard to 55 wierszy.')}</span></Field>}
       {hasScenes && <div className="field"><span className="lbl">{T('W projekcie są już sceny')}</span>
         <label className="opt" style={{ border: 0, padding: '4px 0' }}><input type="radio" name="keep" value="1" data-act-change="imp-keep" checked={!!imp.keep} onChange={() => setUI((s) => { s.imp.keep = true; })} /><div><b>{T('Zachowaj dane scen o tych samych numerach')}</b><span>{T('opisy, elementy, uwagi i plan dni (nowa wersja scenariusza)')}</span></div></label>
         <label className="opt" style={{ border: 0, padding: '4px 0' }}><input type="radio" name="keep" value="0" data-act-change="imp-keep" checked={!imp.keep} onChange={() => setUI((s) => { s.imp.keep = false; })} /><div><b>{T('Zacznij od nowa')}</b><span>{T('usuwa dotychczasowe opisy i plan dni zdjęciowych')}</span></div></label></div>}
+      {hasScenes && imp.keep && <RevisionImportFields />}
       <div className="row"><Btn v="primary" big act="imp-apply" disabled={!p.scenes.length} onClick={applyImportNow}>{hasScenes ? T('Zastosuj nową wersję') : T('Utwórz rozpiskę scen')}</Btn><Btn act="imp-cancel" onClick={() => setUI((s) => { s.imp = { status: 'idle' }; })}>{T('Anuluj')}</Btn></div>
     </div></div></div>;
 }

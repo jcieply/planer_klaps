@@ -6,6 +6,7 @@ import { Pdf } from './pdfdoc';
 import { KLAPS_FONTS, loadFonts } from './fonts';
 import { ensureEn } from './enpack';
 import { Core } from './core';
+import { SECTIONS, secLabel, slug, titleOf, fileStem } from './reportmeta';
 /* ===== RAPORTY: PDF (A4) i Excel: kalendarzówka, rozpiska, shotlista, obsada, ekipa, catering, lokacje, DOOD, plany pracy, transport, kosztorys ===== */
 const Reports = (() => {
   const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
@@ -13,28 +14,11 @@ const Reports = (() => {
   const C = { ink: '1B2229', mute: '5C6670', line: 'C9CFD5', dark: '26323B', band: 'E4EAEF', off: '8A949D', white: 'FFFFFF', head: 'D5DDE3', prep: 'F2F4F6', warn: 'FFF0D3' };
   const DOOD_BG = { SW: '9AD3A5', W: 'D8EEDC', WF: 'F3B7A3', SWF: 'F7E08A', H: 'E0E3E7' };
 
-  const titleOf = (st) => (st.meta.title || T('Bez tytułu')).trim();
-  const slug = (s) => String(s).normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/ł/g, 'l').replace(/Ł/g, 'L').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_').slice(0, 50) || 'projekt';
-  const fileStem = (st) => `${slug(titleOf(st))}_${Core.todayISO()}`;
   const nowText = () => Core.fmtShort(Core.todayISO());
   /** język dokumentów: ustawienie projektu albo język interfejsu */
   const docLang = (st, opts) => (opts && opts.lang) || st.meta.docLang || I18N.lang;
 
-  const SECTIONS = [
-    ['calendar', T_('Kalendarzówka (dni zdjęciowe)')],
-    ['board', T_('Rozpiska scen')],
-    ['shotlist', T_('Shotlista')],
-    ['cast', T_('Obsada')],
-    ['crew', T_('Ekipa')],
-    ['catering', T_('Catering (diety na dni)')],
-    ['sites', T_('Lokacje')],
-    ['dood', T_('Day out of Days (DOOD)')],
-    ['callsheet', T_('Plany pracy (call sheet)')],
-    ['dpr', T_('Raporty dzienne')],
-    ['transport', T_('Plan transportów')],
-    ['budget', T_('Kosztorys')],
-  ];
-  const secLabel = (k) => T((SECTIONS.find((s) => s[0] === k) || ['', k])[1]);
+
   const money = (n) => Core.fmtMoney(n);
   const H = (arr) => arr.map((x) => T(x));
   const hm = (r) => (r.dur || r.fixed ? `${r.from}–${r.to}` : r.from);
@@ -89,6 +73,7 @@ const Reports = (() => {
         const p = ctx.page;
         const size = r.size || SZ;
         if (r.bg) p.rect(MX, ctx.y, CW, m.h, { fill: r.bg });
+        if (r.cellBg) { let cx0 = MX; cols.forEach((c, i) => { if (r.cellBg[i]) p.rect(cx0 + 1.5, ctx.y + 1.5, c.w - 3, m.h - 3, { fill: r.cellBg[i] }); cx0 += c.w; }); }
         let x = MX;
         cols.forEach((c, i) => {
           m.lines[i].forEach((ln, k) => {
@@ -152,6 +137,35 @@ const Reports = (() => {
       const lw = doc.text(left, 12.5, true);
       if (mid) p.text(MX + 8 + lw + 14, ctx.y + 16, mid, { size: 10, color: C.white });
       if (right) p.text(PW - MX - 8, ctx.y + 16, right, { size: 10, bold: true, color: C.white, align: 'right' });
+      ctx.y += h;
+    };
+
+    /** pasek dnia planu pracy: tytuł i data po lewej, kluczowi twórcy (DIR · DOP · PROD) po prawej.
+        Gdy nazwiska nie mieszczą się obok daty, pasek ma drugi wiersz – nazwiska nigdy nie są obcinane. */
+    const callBand = (left, mid, kp) => {
+      ensure(70);
+      const parts = [['DIR', kp.dir], ['DOP', kp.dop], ['PROD', kp.prod]].filter((x) => x[1]);
+      const lw = doc.text(left, 12.5, true), used = 8 + lw + 14 + doc.text(mid, 10, false) + 18;
+      const gap = 14;
+      const measure = (sz) => parts.map(([l, n]) => [l, n, doc.text(l, sz - 1.8, true), doc.text(n, sz, true)]);
+      const width = (m) => m.reduce((a, x) => a + x[2] + 4 + x[3], 0) + gap * Math.max(0, m.length - 1);
+      let size = 9.5, m = measure(size);
+      while (width(m) > CW - used - 8 && size > 8) { size -= 0.5; m = measure(size); }
+      const one = !parts.length || width(m) <= CW - used - 8;
+      if (!one) { size = 9.5; m = measure(size); while (width(m) > CW - 16 && size > 6.5) { size -= 0.5; m = measure(size); } }
+      const p = ctx.page, h = one ? 24 : 40;
+      p.rect(MX, ctx.y, CW, h, { fill: C.dark });
+      p.text(MX + 8, ctx.y + 16.5, left, { size: 12.5, bold: true, color: C.white });
+      p.text(MX + 8 + lw + 14, ctx.y + 16, mid, { size: 10, color: C.white });
+      const base = ctx.y + (one ? 16 : 33);
+      let x = PW - MX - 8;
+      for (let k = m.length - 1; k >= 0; k--) {
+        const [l, n, lw2, nw] = m[k];
+        p.text(x, base, n, { size, bold: true, color: C.white, align: 'right' });
+        x -= nw + 4;
+        p.text(x, base, l, { size: size - 1.8, bold: true, color: 'AEB8C2', align: 'right' });
+        x -= lw2 + gap;
+      }
       ctx.y += h;
     };
 
@@ -223,10 +237,35 @@ const Reports = (() => {
     /* ----- rozpiska scen ----- */
     if (sections.includes('board')) {
       begin(T('Rozpiska scen'));
-      const cols = [{ w: 36, align: 'center', bold: true }, { w: 36, align: 'center' }, { w: 30, align: 'center' }, { w: 180 }, { w: 270 }, { w: 90 }, { w: 40, align: 'center' }, { w: 55, align: 'center' }, { w: 48, align: 'center' }];
-      const rows = data.scenes.map((r) => ({ cells: [r.num, r.ieLabel, r.todShort, r.place, r.synopsis, r.castText, r.pages, r.dayNo ? 'D' + r.dayNo : '—', r.page || ''], bg: r.bg }));
-      rows.push({ cells: ['', '', '', `${T('Razem')}: ${data.scenes.length} ${Core.pl(data.scenes.length, 'scena', 'sceny', 'scen')}`, '', '', Core.fmtEighths(data.totals.eighths), '', ''], bg: C.band, bold: true });
-      table(cols, rows, { header: H(['Sc.', 'W/Z', 'D/N', 'Plan / lokacja', 'Opis', 'Obsada', 'Str.', 'Dzień zdj.', 'Strona']), vlines: true });
+      const anyRev = data.scenes.some((r) => r.rev);
+      const cols = [{ w: 36, align: 'center', bold: true }, { w: 36, align: 'center' }, { w: 30, align: 'center' }, { w: 180 }, { w: anyRev ? 236 : 270 }, { w: 90 }, { w: 40, align: 'center' }, { w: 55, align: 'center' }, { w: 48, align: 'center' }];
+      if (anyRev) cols.splice(1, 0, { w: 34, align: 'center', bold: true });
+      const revCell = (r) => (r.rev ? 'R' + r.rev.n : '');
+      const rows = data.scenes.map((r) => {
+        const cells = [r.num, r.ieLabel, r.todShort, r.place, r.synopsis, r.castText, r.pages, r.dayNo ? 'D' + r.dayNo : '—', r.page || ''];
+        if (anyRev) cells.splice(1, 0, revCell(r));
+        return { cells, bg: r.bg, cellBg: anyRev && r.rev ? { 1: r.rev.bg } : null };
+      });
+      const tot = ['', '', '', `${T('Razem')}: ${data.scenes.length} ${Core.pl(data.scenes.length, 'scena', 'sceny', 'scen')}`, '', '', Core.fmtEighths(data.totals.eighths), '', ''];
+      if (anyRev) tot.splice(1, 0, '');
+      rows.push({ cells: tot, bg: C.band, bold: true });
+      const hdr = ['Sc.', 'W/Z', 'D/N', 'Plan / lokacja', 'Opis', 'Obsada', 'Str.', 'Dzień zdj.', 'Strona'];
+      if (anyRev) hdr.splice(1, 0, 'Rew.');
+      table(cols, rows, { header: H(hdr), vlines: true });
+      if (anyRev) {
+        const revs = Core.revisions(st).filter((r) => r.n > 0 && st.scenes.some((sc) => sc.rev === r.id));
+        ensure(30); ctx.y += 8;
+        let lx = MX;
+        ctx.page.text(lx, ctx.y + 8, T('Rewizje scenariusza:'), { size: 7.5, bold: true, color: C.mute }); lx += doc.text(T('Rewizje scenariusza:'), 7.5, true) + 10;
+        revs.forEach((r) => {
+          const c = Core.revColor(r.color), lab = `R${r.n}  ${Core.revName(r)}${r.date ? '  ' + Core.fmtShort(r.date) : ''}`, w = doc.text(lab, 7.5, false) + 12;
+          if (lx + w > PW - MX) { ctx.y += 14; lx = MX; }
+          ctx.page.rect(lx, ctx.y, w, 11, { fill: c.bg, stroke: c.dot, lw: 0.6 });
+          ctx.page.text(lx + 6, ctx.y + 8, lab, { size: 7.5, color: C.ink });
+          lx += w + 6;
+        });
+        ctx.y += 16;
+      }
     }
 
     /* ----- shotlista ----- */
@@ -379,9 +418,9 @@ const Reports = (() => {
       if (!began) { began = true; ctx.section = label; } else startSection(label, 'p');
       const call = sh.crewCall || d.call;
       const lunch = Core.lunchOf(st, stDay);
-      docBand(T('PLAN PRACY · DZIEŃ {n}', { n: d.no }), Core.fmtDatePL(d.date), T('Zbiórka ekipy {t}', { t: call || '—' }) + (lunch ? '   ·   ' + T('Obiad {t}', { t: lunch.from }) : ''));
+      callBand(T('PLAN PRACY · DZIEŃ {n}', { n: d.no }), Core.fmtDatePL(d.date), Core.keyPeople(st));
       const scs = Core.sheetScenes(st, stDay);
-      const info = [[T('Zbiórka ekipy'), call, 1, true], [T('Obiad'), lunch ? lunch.label : '', 1, true], [T('Przewidywany koniec'), times && times.known ? Core.clock(times.end) : '', 1], [T('Czas pracy'), times && times.known ? Core.fmtDur(times.work) : '', 1],
+      const info = [[T('Zbiórka ekipy'), call, 1, 'big'], [T('Obiad'), lunch ? lunch.label : '', 1, true], [T('Przewidywany koniec'), times && times.known ? Core.clock(times.end) : '', 1], [T('Czas pracy'), times && times.known ? Core.fmtDur(times.work) : '', 1],
         [T('Sceny w planie'), `${scs.length} · ${Core.fmtEighths(scs.reduce((a, s) => a + s.eighths, 0))} ${T('str.')}`, 1], [T('Wschód słońca'), sh.sunrise, 1], [T('Zachód słońca'), sh.sunset, 1], [T('Pogoda'), sh.weather, 1],
         [T('Szpital / pogotowie'), sh.hospital, 4]];
       const iw = CW / 4;
@@ -391,11 +430,11 @@ const Reports = (() => {
       info.forEach(([lab, val, span, hl]) => {
         if (col + span > 4) { ctx.y += rowMax; col = 0; rowMax = 0; }
         const x = MX + col * iw;
-        if (hl && val) ctx.page.rect(x + 1, ctx.y + 1, iw * span - 4, 26, { fill: C.warn });
+        if (hl === true && val) ctx.page.rect(x + 1, ctx.y + 1, iw * span - 4, 26, { fill: C.warn });
         ctx.page.text(x + 4, ctx.y + 8, lab.toUpperCase(), { size: 6.6, bold: true, color: C.mute });
         const ls = doc.wrap(val || '—', iw * span - 12, hl ? 12 : 9).slice(0, 3);
         ls.forEach((ln, k) => ctx.page.text(x + 4, ctx.y + (hl ? 21 : 19) + k * 11, ln, hl ? { size: 12, bold: true, color: val ? C.ink : C.mute } : { size: 9, color: val ? C.ink : C.mute }));
-        rowMax = Math.max(rowMax, 24 + (ls.length - 1) * 11);
+        rowMax = Math.max(rowMax, (hl ? 29 : 24) + (ls.length - 1) * 11);
         col += span;
       });
       ctx.y += rowMax + 4;
@@ -406,12 +445,12 @@ const Reports = (() => {
       subhead(T('Harmonogram dnia'));
       const rows = [];
       crows.forEach((r) => {
-        if (r.prep) rows.push({ cells: [`${Core.minToTime(r.fromMin - r.prep)}–${r.from}`, Core.fmtHM(r.prep), '', '', T('Przestawka / przygotowanie'), '', '', ''], bg: C.prep, color: C.mute, size: 7 });
-        rows.push({ cells: [hm(r), r.dur ? Core.fmtHM(r.dur) : '', r.num, r.shot, r.desc, r.cast, r.camera, r.notes], bg: r.kind === 'custom' ? C.band : r.bg, bold: r.kind === 'custom' });
+        if (r.prep) rows.push({ cells: [`${Core.minToTime(r.fromMin - r.prep)}–${r.from}`, '', '', T('Przestawka / przygotowanie'), '', '', ''], bg: C.prep, color: C.mute, size: 7 });
+        rows.push({ cells: [hm(r), r.num, r.shot, r.desc, r.cast, r.camera, r.notes], bg: r.kind === 'custom' ? C.band : r.bg, bold: r.kind === 'custom' });
       });
       if (!rows.length) textBlock(T('Harmonogram jest pusty.'), { color: C.mute });
-      else table([{ w: 58, align: 'center', bold: true }, { w: 30, align: 'center' }, { w: 26, align: 'center', bold: true }, { w: 30, align: 'center' }, { w: 142 }, { w: 44, align: 'center' }, { w: 96 }, { w: CW - 426 }],
-        rows, { header: H(['Godz.', 'Czas#pdf', 'Sc.', 'Uj.', 'Opis / plan', 'Obsada', 'Elementy kamerowe', 'Uwagi']), vlines: true, keep: 20 });
+      else table([{ w: 58, align: 'center', bold: true }, { w: 26, align: 'center', bold: true }, { w: 30, align: 'center' }, { w: 158 }, { w: 58, align: 'center' }, { w: 96 }, { w: CW - 426 }],
+        rows, { header: H(['Godz.', 'Sc.', 'Uj.', 'Opis / plan', 'Obsada', 'Elementy kamerowe', 'Uwagi']), vlines: true, keep: 20 });
       const castIds = Core.sheetCastIds(st, stDay), cm = Core.castMap(st);
       if (castIds.length) {
         subhead(T('Obsada i zbiórki'));
@@ -686,10 +725,10 @@ const Reports = (() => {
     /* --- Rozpiska scen --- */
     if (sections.includes('board')) {
       const sh = wb.addSheet(sheetName('Rozpiska scen'), { tab: 'C9A227', freeze: { row: 5, col: 3 } });
-      const widths = [7, 7, 6, 32, 20, 46, 12, 28, 9, 8, 9, 12, 8, 28, 30];
+      const widths = [7, 7, 6, 32, 20, 46, 12, 28, 9, 8, 9, 12, 8, 28, 30, 20];
       widths.forEach((w, i) => sh.colWidth(i + 1, w));
       titleBlock(sh, widths.length, T('ROZPISKA SCEN'));
-      H(['Sc.', 'W/Z', 'D/N', 'Plan / lokacja', 'Obiekt', 'Opis', 'Obsada (nr)', 'Obsada', 'Str.', 'Ósemki', 'Dzień zdj.', 'Data', 'Strona', 'Elementy', 'Uwagi']).forEach((h, i) => sh.set(5, i + 1, h, hStyle));
+      H(['Sc.', 'W/Z', 'D/N', 'Plan / lokacja', 'Obiekt', 'Opis', 'Obsada (nr)', 'Obsada', 'Str.', 'Ósemki', 'Dzień zdj.', 'Data', 'Strona', 'Elementy', 'Uwagi', 'Rewizja']).forEach((h, i) => sh.set(5, i + 1, h, hStyle));
       sh.rowHeight(5, 26);
       const dayDate = new Map(data.days.filter((d) => d.kind === 'shoot').map((d) => [d.no, d.date]));
       let r = 6;
@@ -701,6 +740,7 @@ const Reports = (() => {
         vals.forEach((val, i) => {
           sh.set(r, i + 1, val, Object.assign({}, base, { b: i === 0, h: [0, 1, 2, 8, 9, 10, 11, 12].includes(i) ? 'center' : undefined, wrap: [3, 5, 7, 13, 14].includes(i), fmt: i === 11 ? 'dd.mm.yyyy' : undefined }));
         });
+        sh.set(r, 16, x.rev ? `R${x.rev.n} ${x.rev.name}` : '', Object.assign({}, base, { bg: x.rev ? x.rev.bg : x.bg, wrap: true }));
         sh.rowHeight(r, Math.max(16, Math.ceil((x.synopsis || '').length / 52) * 13 + 3));
         r++;
       });
@@ -936,50 +976,54 @@ const Reports = (() => {
       data.days.filter((d) => d.kind === 'shoot' && (!opts.dayId || d.id === opts.dayId)).forEach((d) => {
         const stDay = st.days.find((x) => x.id === d.id);
         const sh = wb.addSheet(sheetName(T('Plan pracy D{n}', { n: d.no })), { tab: '0D6B73', portrait: true });
-        const widths = [9, 9, 8, 8, 9, 34, 26, 24, 24];
+        const widths = [9, 9, 8, 10, 40, 26, 24, 24];
         widths.forEach((w, i) => sh.colWidth(i + 1, w));
         const N = widths.length;
         titleBlock(sh, N, T('PLAN PRACY · DZIEŃ {n}', { n: d.no }) + ' · ' + Core.fmtDatePL(d.date));
         const cs = Core.sheetOf(st, d.id), crows = Core.callRows(st, stDay), times = Core.dayTimes(st, stDay);
         let r = 5;
+        const kp = Core.keyPeople(st);
         const info = [[T('Zbiórka ekipy'), cs.crewCall || d.call], [T('Przewidywany koniec'), times && times.known ? Core.clock(times.end) + '  (' + T('czas pracy') + ' ' + Core.fmtDur(times.work) + ')' : ''], [T('Wschód słońca'), cs.sunrise], [T('Zachód słońca'), cs.sunset], [T('Pogoda'), cs.weather], [T('Szpital / pogotowie'), cs.hospital]];
         const lunch = Core.lunchOf(st, stDay);
         info.splice(1, 0, [T('Obiad'), lunch ? lunch.label : '']);
+        const people = [['DIR', kp.dir], ['DOP', kp.dop], ['PROD', kp.prod]].filter((x) => x[1]).map((x) => x[0] + ' ' + x[1]).join('   ·   ');
+        if (people) info.unshift([T('Kluczowi twórcy'), people]);
         info.forEach((kv) => { const hl = kv[0] === T('Obiad') && kv[1]; sh.set(r, 1, kv[0], { b: true, sz: 9, color: '5C6670' }); sh.merge(r, 1, r, 3); sh.set(r, 4, kv[1] || '—', hl ? { sz: 12, b: true, bg: 'FFF0D3' } : { sz: 10, wrap: true }); sh.merge(r, 4, r, N); r++; });
         r++;
         const section = (t) => { for (let c = 1; c <= N; c++) sh.set(r, c, null, { bg: '26323B' }); sh.set(r, 1, t.toUpperCase(), { b: true, color: 'FFFFFF', bg: '26323B', sz: 10 }); sh.merge(r, 1, r, N); sh.rowHeight(r, 18); r++; };
         const head = (arr, spans) => { let c = 1; arr.forEach((h, i) => { sh.set(r, c, h, hStyle); const sp = (spans && spans[i]) || 1; for (let k = 1; k < sp; k++) sh.set(r, c + k, null, hStyle); if (sp > 1) sh.merge(r, c, r, c + sp - 1); c += sp; }); r++; };
         if (cs.contacts.length) {
           section(T('Ważne kontakty'));
-          head(H(['Funkcja', 'Imię i nazwisko', 'Telefon']), [3, 3, 3]);
-          cs.contacts.forEach((c) => { const b = { border: BORDER, wrap: true }; [c.role, c.name, c.phone].forEach((v, i) => { sh.set(r, 1 + i * 3, v, Object.assign({}, b, { b: i === 0 })); sh.set(r, 2 + i * 3, null, b); sh.set(r, 3 + i * 3, null, b); sh.merge(r, 1 + i * 3, r, 3 + i * 3); }); r++; });
+          const sp = [3, 3, 2];
+          head(H(['Funkcja', 'Imię i nazwisko', 'Telefon']), sp);
+          cs.contacts.forEach((c) => { const b = { border: BORDER, wrap: true }; let c0 = 1; [c.role, c.name, c.phone].forEach((v, i) => { sh.set(r, c0, v, Object.assign({}, b, { b: i === 0 })); for (let k = 1; k < sp[i]; k++) sh.set(r, c0 + k, null, b); sh.merge(r, c0, r, c0 + sp[i] - 1); c0 += sp[i]; }); r++; });
           r++;
         }
         section(T('Harmonogram dnia'));
-        head(H(['Od', 'Do', 'Czas', 'Sc.', 'Ujęcie', 'Opis / plan', 'Obsada', 'Elementy kamerowe', 'Uwagi']));
+        head(H(['Od', 'Do', 'Sc.', 'Ujęcie', 'Opis / plan', 'Obsada', 'Elementy kamerowe', 'Uwagi']));
         crows.forEach((x) => {
           if (x.prep) {
             const pb = { bg: 'F2F4F6', border: BORDER, v: 'center', color: '5C6670', sz: 9 };
-            [Core.minToTime(x.fromMin - x.prep), x.from, Core.fmtHM(x.prep), '', '', T('Przestawka / przygotowanie'), '', '', ''].forEach((val, i) => sh.set(r, i + 1, val, Object.assign({}, pb, { h: i < 5 ? 'center' : undefined })));
+            [Core.minToTime(x.fromMin - x.prep), x.from, '', '', T('Przestawka / przygotowanie'), '', '', ''].forEach((val, i) => sh.set(r, i + 1, val, Object.assign({}, pb, { h: i < 4 ? 'center' : undefined })));
             r++;
           }
           const custom = x.kind === 'custom', base = { bg: custom ? 'E4EAEF' : x.bg, border: BORDER, v: 'center' };
-          [x.from, x.dur || x.fixed ? x.to : '', x.dur ? Core.fmtHM(x.dur) : '', x.num, x.shot, x.desc, x.cast, x.camera, x.notes].forEach((val, i) => sh.set(r, i + 1, val, Object.assign({}, base, { b: i < 2 || i === 3 || custom, h: i < 5 ? 'center' : undefined, wrap: i >= 5 })));
-          sh.rowHeight(r, Math.max(16, Math.ceil(Math.max((x.desc || '').length / 38, (x.camera || '').length / 26, (x.notes || '').length / 26, 1)) * 13 + 3)); r++;
+          [x.from, x.dur || x.fixed ? x.to : '', x.num, x.shot, x.desc, x.cast, x.camera, x.notes].forEach((val, i) => sh.set(r, i + 1, val, Object.assign({}, base, { b: i < 2 || i === 2 || custom, h: i < 4 ? 'center' : undefined, wrap: i >= 4 })));
+          sh.rowHeight(r, Math.max(16, Math.ceil(Math.max((x.desc || '').length / 44, (x.camera || '').length / 26, (x.notes || '').length / 26, 1)) * 13 + 3)); r++;
         });
         r++;
         const castIds = Core.sheetCastIds(st, stDay), cm = Core.castMap(st), scs = Core.sheetScenes(st, stDay);
         if (castIds.length) {
           section(T('Obsada i zbiórki'));
-          head(H(['Nr', 'Postać', 'Zbiórka', 'Aktor / aktorka', 'Charakteryzacja / na plan / uwagi', 'Sceny']), [1, 2, 1, 2, 2, 1]);
+          head(H(['Nr', 'Postać', 'Zbiórka', 'Aktor / aktorka', 'Charakteryzacja / na plan / uwagi', 'Sceny']), [1, 2, 1, 1, 2, 1]);
           castIds.map((id) => cm.get(id)).filter(Boolean).forEach((c) => {
             const cc = cs.cast[c.id] || {}, b = { border: BORDER, v: 'center', wrap: true };
             sh.set(r, 1, c.id, Object.assign({}, b, { b: true, h: 'center' }));
             sh.set(r, 2, c.name, Object.assign({}, b, { b: true })); sh.set(r, 3, null, b); sh.merge(r, 2, r, 3);
             sh.set(r, 4, cc.call || d.call || '', Object.assign({}, b, { b: true, h: 'center' }));
-            sh.set(r, 5, c.actor, b); sh.set(r, 6, null, b); sh.merge(r, 5, r, 6);
-            sh.set(r, 7, [cc.makeup && T('Charakteryzacja') + ' ' + cc.makeup, cc.onset && T('Na plan') + ' ' + cc.onset, cc.note].filter(Boolean).join(' · '), b); sh.set(r, 8, null, b); sh.merge(r, 7, r, 8);
-            sh.set(r, 9, scs.filter((s) => s.cast.includes(c.id)).map((s) => s.num).join(', '), b);
+            sh.set(r, 5, c.actor, b);
+            sh.set(r, 6, [cc.makeup && T('Charakteryzacja') + ' ' + cc.makeup, cc.onset && T('Na plan') + ' ' + cc.onset, cc.note].filter(Boolean).join(' · '), b); sh.set(r, 7, null, b); sh.merge(r, 6, r, 7);
+            sh.set(r, 8, scs.filter((s) => s.cast.includes(c.id)).map((s) => s.num).join(', '), b);
             r++;
           });
           r++;
@@ -989,14 +1033,14 @@ const Reports = (() => {
         const trips = Core.transportData(st, d.id).trips;
         if (trips.length) {
           section(T('Transport'));
-          head(H(['Godz.', 'Pojazd', 'Kierowca', 'Skąd → dokąd', 'Kto / co']), [1, 2, 2, 2, 2]);
+          head(H(['Godz.', 'Pojazd', 'Kierowca', 'Skąd → dokąd', 'Kto / co']), [1, 2, 2, 2, 1]);
           trips.forEach((t) => {
             const b = { border: BORDER, wrap: true, v: 'center' };
             sh.set(r, 1, t.time, Object.assign({}, b, { b: true, h: 'center' }));
             sh.set(r, 2, t.vehicle ? t.vehicle.name : '', b); sh.set(r, 3, null, b); sh.merge(r, 2, r, 3);
             sh.set(r, 4, t.vehicle ? [t.vehicle.driver, t.vehicle.phone].filter(Boolean).join(' ') : '', b); sh.set(r, 5, null, b); sh.merge(r, 4, r, 5);
             sh.set(r, 6, [t.from, t.to].filter(Boolean).join(' → '), b); sh.set(r, 7, null, b); sh.merge(r, 6, r, 7);
-            sh.set(r, 8, [t.who, t.note].filter(Boolean).join(' · '), b); sh.set(r, 9, null, b); sh.merge(r, 8, r, 9);
+            sh.set(r, 8, [t.who, t.note].filter(Boolean).join(' · '), b);
             r++;
           });
           r++;

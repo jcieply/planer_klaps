@@ -1,5 +1,5 @@
 /* Typy rdzenia (logika w core.js, przeniesiona z wersji 1.x). */
-import type { Fx, CastMember, CrewMember, Day, DayKind, Meta, ProjectState, Scene, Sheet, SheetRow, Shot, Site, Vehicle, Trip, Dpr } from './model';
+import type { Revision, Fx, CastMember, CrewMember, Day, DayKind, Meta, ProjectState, Scene, Sheet, SheetRow, Shot, Site, Vehicle, Trip, Dpr } from './model';
 
 export interface DayStats { scenes: Scene[]; eighths: number; sites: string[]; castIds: number[]; mixed: boolean }
 export interface CallRow {
@@ -7,6 +7,8 @@ export interface CallRow {
   dur: number; durSet: boolean; durDef: number | null; prep: number; prepSet: boolean; fromMin: number; toMin: number; from: string; to: string; nextDay: boolean;
   num: string; shot: string; desc: string; cast: string; camera: string; notes: string; bg: string; eighths: number; missing: boolean;
 }
+export interface RevColor { key: string; base: string; round: number; name: string; bg: string; dot: string }
+export interface RevImpact { dayId: string; no: number | null; date: string; scenes: string[]; removedNums?: string[] }
 export interface DayTimes { start: number; end: number | null; work: number | null; known: boolean }
 export interface HoursAlert { type: 'work' | 'rest'; text: string }
 export interface HoursEntry { start: number; end: number | null; work: number | null; known: boolean; alerts: HoursAlert[]; restBefore: number | null; restAfter: number | null; actual?: boolean }
@@ -57,7 +59,7 @@ export interface CoreApi {
   SITE_FIELDS: string[]; siteEntry(o?: Partial<Site> | null): Site & Record<string, any>; POWER: [string, string][]; SITE_CONTRACT: [string, string][];
   powerLabel(k: string): string; contractLabel(k: string): string; contractOpen(k: string): boolean;
   customRow(text: string, dur?: number | null, prep?: number | null, fix?: string): SheetRow; sceneRowOf(sceneId: string): SheetRow; shotRowOf(x: Shot, prep?: number | null): SheetRow;
-  sceneDesc(sc: Scene): string; shotsOf(st: ProjectState, sceneId: string): Shot[]; shotEta(st: ProjectState, sceneId: string): number | null;
+  sceneDesc(sc: Scene): string; keyPeople(st: ProjectState): { dir: string; dop: string; prod: string }; shotsOf(st: ProjectState, sceneId: string): Shot[]; shotEta(st: ProjectState, sceneId: string): number | null;
   sheetScenes(st: ProjectState, d: Day): Scene[]; sheetCastIds(st: ProjectState, d: Day): number[]; locationsText(st: ProjectState, d: Day): string;
   removeScenes(st: ProjectState, ids: string[]): void; addMap(st: ProjectState, dayId: string, img: { data: string; w: number; h: number; name?: string; caption?: string }): string; removeMap(st: ProjectState, dayId: string, mapId: string): void;
   DEPTS: string[]; CONTRACTS: string[]; DIETS: [string, string][]; dietLabel(k: string, short?: boolean): string;
@@ -69,6 +71,10 @@ export interface CoreApi {
   nextShotNo(st: ProjectState, sceneId: string): string; newShot(st: ProjectState, sceneId: string): Shot;
   num(v: unknown): number; fmtMoney(n: number, cur?: string): string; budgetData(st: ProjectState): BudgetData; transportData(st: ProjectState, dayId?: string | null): TransportData;
   parseRate(s: string): { amount: number; unit: string; cur: string | null } | null; CURRENCIES: Record<string, { sym: string; name: string }>; setCurrency(c?: string): void; plnPer(st: ProjectState, c: string): number | null; convert(st: ProjectState, amount: number, from: string, to: string): number | null; fxInfo(st: ProjectState): Fx | null; parseNbp(json: unknown): Fx | null; rateLines(st: ProjectState): RateLine[]; rateFormula(l: RateLine): string; rateUnitLabel(unit: string, short?: boolean): string;
+  REV_COLORS(): RevColor[]; revColor(key: string): RevColor; revColorAt(n: number): RevColor; revisions(st: ProjectState): Revision[]; revOf(st: ProjectState, id?: string): Revision | null;
+  sceneRev(st: ProjectState, sc: Scene): Revision | null; revName(r: Revision | null): string; newRevision(st: ProjectState, o?: Partial<Revision>): Revision;
+  nextRevision(st: ProjectState): { n: number; color: string; label: string; date: string }; ensureBaseRevision(st: ProjectState): Revision | null;
+  revisionImpact(st: ProjectState, r: Revision | null): RevImpact[]; removeRevision(st: ProjectState, id: string): void; sceneChanged(old: any, p: any): boolean;
   applyImport(st: ProjectState, parsed: any, o: Opts): void; renameSite(st: ProjectState, from: string, to: string): void;
   mergeCast(st: ProjectState, from: number, to: number): void; removeCast(st: ProjectState, id: number): void;
   weekdaysOf(meta: Meta): number[]; lastDate(st: ProjectState): string; normName(s: string): string;

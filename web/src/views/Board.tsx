@@ -1,11 +1,12 @@
 /* Rozpiska scen: paski scen z filtrami, zaznaczaniem i akcjami zbiorczymi.
    Przy dużych scenariuszach lista jest wirtualizowana (TanStack Virtual) – rysowane są tylko widoczne paski. */
+import { RevMark } from './Revisions';
 import { Editing } from './Presence';
 import { memo, useMemo, useRef } from 'react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { T, T_ } from '../domain/i18n';
 import { Core } from '../domain/core';
-import type { CastMember, ProjectState, Scene } from '../domain/model';
+import type { CastMember, ProjectState, Scene, Revision } from '../domain/model';
 import { mutate, useProject } from '../state/project';
 import { setUI, toast, useUI } from '../state/ui';
 import { dayLabel, kcls, pl, sitesList } from '../lib/format';
@@ -16,7 +17,7 @@ import { NeedScenes, addScene, confirmTwice } from '../components/common';
 export const TODS: [string, string][] = [['DAY', T_('Dzień')], ['NIGHT', T_('Noc')], ['DAWN', T_('Świt')], ['DUSK', T_('Zmierzch')]];
 export const IES: [string, string][] = [['INT', T_('Wnętrze (WN.)')], ['EXT', T_('Plener (ZN.)')], ['INT/EXT', T_('WN./ZN.')]];
 const VIRTUAL_FROM = 80;
-const EMPTY_F = { q: '', ie: '', tod: '', cast: '', site: '', plan: '' };
+const EMPTY_F = { q: '', ie: '', tod: '', cast: '', site: '', plan: '', rev: '' };
 
 export function Board() {
   const st = useProject((s) => s.st)!;
@@ -36,6 +37,7 @@ export function Board() {
       <Select data-act-change="f-tod" label={T('Pora dnia')} value={f.tod} onChange={(v) => setF('tod', v)} options={[['', T('Cała doba')], ...TODS.map(([k, l]) => [k, T(l)] as [string, string])]} />
       <Select data-act-change="f-cast" label={T('Postać')} value={f.cast} onChange={(v) => setF('cast', v)} options={[['', T('Każda postać')], ...st.cast.map((c) => [c.id, `${c.id} ${c.name}`] as [number, string])]} />
       <Select data-act-change="f-site" label={T('Obiekt')} value={f.site} onChange={(v) => setF('site', v)} options={[['', T('Każdy obiekt')], ...sitesList(st).map((x) => [x, x] as [string, string])]} />
+      {(st.revisions || []).length > 1 && <Select data-act-change="f-rev" label={T('Rewizja scenariusza')} value={f.rev} onChange={(v) => setF('rev', v)} options={[['', T('Każda wersja')], ['changed', T('Zmienione w rewizjach')], ...Core.revisions(st).filter((r) => r.n > 0).map((r) => [r.id, Core.revName(r)] as [string, string])]} />}
       <Select data-act-change="f-plan" label={T('Stan planu')} value={f.plan} onChange={(v) => setF('plan', v)} options={[['', T('Wszystkie')], ['unplanned', T('Niezaplanowane')], ['planned', T('Zaplanowane')]]} />
       <Btn sm v="ghost" act="f-clear" onClick={() => setUI((s) => { s.f = { ...EMPTY_F }; })}>{T('Wyczyść filtry')}</Btn>
       <span className="muted small" style={{ marginLeft: 'auto' }} dangerouslySetInnerHTML={{ __html: T('<b class="num">{a}</b> z {b} scen · <b class="num">{p}</b> str.', { a: list.length, b: st.scenes.length, p: Core.fmtEighths(eighths) }) }} />
@@ -66,7 +68,7 @@ function Strips({ list, st, selSet }: { list: Scene[]; st: ProjectState; selSet:
   const ref = useRef<HTMLDivElement>(null);
   const big = list.length >= VIRTUAL_FROM;
   const v = useWindowVirtualizer({ count: big ? list.length : 0, estimateSize: () => 46, overscan: 12, scrollMargin: ref.current?.offsetTop ?? 0 });
-  const row = (s: Scene) => <Strip key={s.id} s={s} sch={idx.get(s.id)} checked={selSet.has(s.id)} shot={prog.doneScenes.has(s.id) ? 'done' : prog.partScenes.has(s.id) ? 'part' : ''} castTitle={s.cast.map((id) => (cm.get(id) || ({} as any)).name).filter(Boolean).join(', ')} />;
+  const row = (s: Scene) => <Strip key={s.id} s={s} rev={Core.sceneRev(st, s)} sch={idx.get(s.id)} checked={selSet.has(s.id)} shot={prog.doneScenes.has(s.id) ? 'done' : prog.partScenes.has(s.id) ? 'part' : ''} castTitle={s.cast.map((id) => (cm.get(id) || ({} as any)).name).filter(Boolean).join(', ')} />;
   if (!big) return <>{list.map(row)}</>;
   const items = v.getVirtualItems();
   return <div ref={ref} style={{ height: v.getTotalSize(), position: 'relative' }}>
@@ -74,13 +76,13 @@ function Strips({ list, st, selSet }: { list: Scene[]; st: ProjectState; selSet:
   </div>;
 }
 
-const Strip = memo(function Strip({ s, sch, checked, castTitle, shot }: { s: Scene; sch: any; checked: boolean; castTitle: string; shot: '' | 'done' | 'part' }) {
+const Strip = memo(function Strip({ s, rev, sch, checked, castTitle, shot }: { s: Scene; rev: Revision | null; sch: any; checked: boolean; castTitle: string; shot: '' | 'done' | 'part' }) {
   const open = () => setUI((u) => { u.drawer = s.id; u.showScript = false; });
   return <div className={`strip bd ${kcls(s)}${checked ? ' sel' : ''}`} data-act="scene-open" data-id={s.id} role="button" tabIndex={0} aria-label={T('Scena {n}', { n: s.num })}
     onClick={(e) => { if ((e.target as HTMLElement).closest('input, select, label')) return; open(); }}
     onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); open(); } }}>
     <div className="c"><input type="checkbox" data-act="sel-toggle" data-id={s.id} checked={checked} aria-label={T('Zaznacz scenę {n}', { n: s.num })} onChange={() => setUI((u) => { u.sel = u.sel.includes(s.id) ? u.sel.filter((x) => x !== s.id) : [...u.sel, s.id]; })} /></div>
-    <div className="c scn">{s.num}</div><div className="c">{Core.IE_LABEL[s.ie] || '—'}</div><div className="c">{(Core.TOD[s.tod] || {}).short || ''}</div>
+    <div className="c scn">{s.num}<RevMark r={rev} short /></div><div className="c">{Core.IE_LABEL[s.ie] || '—'}</div><div className="c">{(Core.TOD[s.tod] || {}).short || ''}</div>
     <div className="plc"><Editing k="scene" id={s.id} />{s.place || s.site || '—'}{s.site && s.place && s.site !== s.place ? <small>{s.site}</small> : null}</div>
     <div className="syn">{s.synopsis}</div>
     <div className="cst" title={castTitle}>{s.cast.slice().sort((a, b) => a - b).join(', ')}</div>

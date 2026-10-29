@@ -144,3 +144,18 @@
 .editing-dots { display: inline-flex; }
 .editing-dots i { width: 18px; height: 18px; margin-left: -4px; border-radius: 50%; border: 2px solid var(--surface); color: #fff; font-style: normal; font-size: 9px; line-height: 14px; text-align: center; font-weight: 700; }
 .editing-dots i:first-child { margin-left: 0; }
+
+/* ---------- wersje scenariusza (kolorowe strony) ---------- */
+.revm { display: inline-flex; align-items: center; gap: 5px; vertical-align: middle; font-size: 12px; font-weight: 600; }
+.revm i { width: 9px; height: 9px; border-radius: 50%; background: var(--rv-bg); box-shadow: inset 0 0 0 1.5px var(--rv-dot); flex: none; }
+.revm.lab { background: var(--rv-bg); color: #1B2229; border-radius: 5px; padding: 1px 8px 1px 6px; box-shadow: inset 0 0 0 1px var(--rv-dot); }
+.strip .scn .revm { margin-left: 5px; }
+.strip .scn .revm i { width: 10px; height: 10px; }
+.rev-new { border-left: 4px solid var(--rv-dot); background: color-mix(in srgb, var(--rv-bg) 35%, transparent); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.rev-tbl td { vertical-align: middle; }
+.rev-tbl tr td:first-child { box-shadow: inset 4px 0 0 var(--rv-dot); }
+.rev-tbl .rev-col { display: flex; align-items: center; gap: 8px; min-width: 170px; }
+.rev-tbl .dayb { display: inline-block; font-weight: 700; font-size: 12px; background: var(--surface-3); border-radius: 4px; padding: 1px 7px; margin: 0 4px 2px 0; }
+.rev-tbl small { display: block; margin-top: 2px; }
+.revm.tag { background: var(--rv-bg); color: #1B2229; border: 1.5px solid var(--rv-dot); border-radius: 4px; padding: 0 4px; font-size: 10.5px; font-weight: 800; line-height: 1.45; letter-spacing: .02em; }
+.strip .scn .revm.tag { margin-left: 6px; }

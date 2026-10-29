@@ -91,12 +91,12 @@ const Core = (() => {
     return {
       v: 2,
       meta: {
-        title: '', company: '', director: '', producer: '', manager: '', scriptVersion: '', scriptDate: '', scriptFile: '',
+        title: '', company: '', director: '', dop: '', producer: '', manager: '', scriptVersion: '', scriptDate: '', scriptFile: '',
         startDate: nextMonday(todayISO()), weekdays: [1, 2, 3, 4, 5], pagesPerDay: 5, call: '07:00', callNight: '17:00',
         linesPerPage: 55, castMode: 'all', maxWorkH: 12, minRestH: 11, docLang: '',
       },
       scenes: [], cast: [], days: [], sites: {}, nextCast: 1,
-      sheets: {}, transport: { vehicles: [], trips: [] }, budget: { items: [], rates: {}, autoRates: true, currency: 'PLN', fx: null }, todos: [], crew: [], shots: [], media: {},
+      sheets: {}, transport: { vehicles: [], trips: [] }, budget: { items: [], rates: {}, autoRates: true, currency: 'PLN', fx: null }, todos: [], crew: [], shots: [], media: {}, revisions: [],
       catering: { cast: true, extra: {} },
     };
   }
@@ -165,6 +165,8 @@ const Core = (() => {
     if (!st.budget.fx || typeof st.budget.fx !== 'object' || !st.budget.fx.pln) st.budget.fx = null;
     if (!st.budget.rates || typeof st.budget.rates !== 'object') st.budget.rates = {};
     st.comments = Array.isArray(st.comments) ? st.comments.filter((x) => x && typeof x === 'object' && x.id && typeof x.text === 'string').map((x) => Object.assign({ at: 0, by: '', name: '', ref: 'general', mentions: [], done: false }, x)) : [];
+    st.revisions = Array.isArray(st.revisions) ? st.revisions.filter((x) => x && typeof x === 'object' && x.id).map((x, i) => Object.assign({ n: i, color: 'white', label: '', date: '', note: '', file: '', at: 0 }, x, { added: Array.isArray(x.added) ? x.added : [], changed: Array.isArray(x.changed) ? x.changed : [], removed: Array.isArray(x.removed) ? x.removed : [] })) : [];
+    { const rids = new Set(st.revisions.map((r) => r.id)); st.scenes.forEach((sc) => { if (sc.rev && !rids.has(sc.rev)) delete sc.rev; }); }
     st.todos = Array.isArray(st.todos) ? st.todos.filter((x) => x && typeof x === 'object').map((x) => Object.assign({ id: uid(), text: '', done: false, due: '', prio: '' }, x)) : [];
     st.crew = (Array.isArray(st.crew) ? st.crew : []).map(migrateCrew);
     st.crew.forEach((c) => {
@@ -393,6 +395,7 @@ const Core = (() => {
       place: sc.place || sc.site, site: sc.site, synopsis: sc.synopsis || '', notes: sc.notes || '', castIds: sc.cast.slice().sort((a, b) => a - b),
       castText: sc.cast.slice().sort((a, b) => a - b).join(', '), castNames: sc.cast.map((id) => (cm.get(id) || {}).name).filter(Boolean),
       eighths: sc.eighths, pages: fmtEighths(sc.eighths), page: sc.page, bg: stripBg(sc), dayNo: sch ? sch.dayNo : null,
+      rev: (() => { const r = sceneRev(st, sc); if (!r) return null; const c = revColor(r.color); return { n: r.n, name: revName(r), color: c.name, bg: c.bg, dot: c.dot, date: r.date }; })(),
       elements: sc.elements || {},
     };
   }
@@ -475,6 +478,14 @@ const Core = (() => {
     const head = `${IE_LABEL[sc.ie] || ''} ${(TOD[sc.tod] || {}).short || ''}.`.trim();
     const place = String(sc.place || sc.site || '').toUpperCase();
     return [head, place].filter(Boolean).join(' ') + (sc.synopsis ? ' – ' + sc.synopsis : '');
+  }
+  /** kluczowi twórcy do nagłówka planu pracy: reżyser, autor zdjęć, kierownik produkcji / producent.
+      Pola projektu mają pierwszeństwo, w drugiej kolejności funkcje z listy ekipy. */
+  const DIR_RE = /^(re[żz]yser|director)$/i, DOP_RE = /autor zdj[ęe]ć|operator obrazu|^operator$|^dop$|director of photography|cinematographer/i, PROD_RE = /kierownik produkcji|^producent|line producer|production manager|^producer/i;
+  function keyPeople(st) {
+    const byRole = (re) => { const c = (st.crew || []).find((x) => re.test(String(x.role || '').trim())); return c ? crewName(c) : ''; };
+    const m = st.meta || {};
+    return { dir: m.director || byRole(DIR_RE), dop: m.dop || byRole(DOP_RE), prod: m.manager || m.producer || byRole(PROD_RE) };
   }
   const shotsOf = (st, sceneId) => (st.shots || []).filter((x) => x.sceneId === sceneId);
   const shotEta = (st, sceneId) => { const xs = shotsOf(st, sceneId).map((x) => etaMin(x.eta)).filter((n) => n != null); return xs.length ? xs.reduce((a, b) => a + b, 0) : null; };
@@ -571,7 +582,7 @@ const Core = (() => {
       const sc = r.kind === 'scene' ? sm.get(r.sceneId) : x ? sm.get(x.sceneId) : null;
       let def = {};
       if (r.kind === 'scene' && sc) def = { num: sc.num, desc: sceneDesc(sc), cast: sc.cast.slice().sort((a, b) => a - b).join(', '), shot: shotsOf(st, sc.id).map((y) => y.shot).filter(Boolean).join(', '), camera: '', dur: shotEta(st, sc.id) };
-      else if (x) def = { num: sc ? sc.num : '', shot: x.shot || '', desc: [x.type, x.desc].filter(Boolean).join(' – '), cast: x.cast || '', camera: [x.lens, x.grip].filter(Boolean).join(', '), dur: etaMin(x.eta) };
+      else if (x) def = { num: sc ? sc.num : '', shot: x.shot || '', desc: x.desc || '', cast: x.cast || '', camera: [x.lens, x.grip].filter(Boolean).join(', '), dur: etaMin(x.eta) };
       const pick = (k) => (r[k] != null ? r[k] : def[k] != null ? def[k] : '');
       const durSet = r.dur != null && r.dur !== '';
       const dur = durSet ? Math.max(0, +r.dur || 0) : def.dur != null ? def.dur : 0;
@@ -939,6 +950,80 @@ const Core = (() => {
 
   /* ---------- import scenariusza do stanu ---------- */
   const normName = (s) => String(s || '').toUpperCase().replace(/\s+/g, ' ').trim();
+  /* ---------- wersje scenariusza (rewizje, kolorowe strony) ----------
+     Kolejność kolorów jak w praktyce branżowej (WGA): biała (pierwotna), niebieska, różowa, żółta, zielona, złota, płowa,
+     łososiowa, wiśniowa; potem cykl powtarza się jako „podwójna …”, „potrójna …”. Scena pamięta rewizję, w której ostatnio się zmieniła. */
+  const REV_BASE = [
+    ['white', T_('Biała'), 'FFFFFF', 'B8C0C8'], ['blue', T_('Niebieska'), 'CFE0F7', '4F86C6'], ['pink', T_('Różowa'), 'F8D3E0', 'D35D8A'],
+    ['yellow', T_('Żółta'), 'FBEE9E', 'C9A400'], ['green', T_('Zielona'), 'CFEBC8', '4E9A43'], ['goldenrod', T_('Złota'), 'F1D27B', 'B8860B'],
+    ['buff', T_('Płowa'), 'EFE1C2', 'A88B55'], ['salmon', T_('Łososiowa'), 'F7C6B0', 'D9714B'], ['cherry', T_('Wiśniowa'), 'EBA3AC', 'B03049'],
+  ];
+  const REV_ROUND = ['', T_('Podwójna'), T_('Potrójna'), T_('Poczwórna')];
+  /** kolor rewizji: klucz 'blue' albo 'blue2' (druga runda) */
+  function revColor(key) {
+    const m = /^([a-z]+)(\d*)$/.exec(String(key || 'white')) || [];
+    const b = REV_BASE.find((x) => x[0] === m[1]) || REV_BASE[0];
+    const round = Math.max(1, +m[2] || 1);
+    const name = round > 1 ? `${T(REV_ROUND[Math.min(round, REV_ROUND.length) - 1] || REV_ROUND[REV_ROUND.length - 1])} ${T(b[1]).toLowerCase()}` : T(b[1]);
+    return { key: b[0] + (round > 1 ? round : ''), base: b[0], round, name, bg: b[2], dot: b[3] };
+  }
+  /** n-ty kolor w kolejności (0 = biała) */
+  const revColorAt = (n) => revColor(REV_BASE[n % REV_BASE.length][0] + (n >= REV_BASE.length ? Math.floor(n / REV_BASE.length) + 1 : ''));
+  const REV_COLORS = () => Array.from({ length: REV_BASE.length * 2 }, (_, i) => revColorAt(i));
+  const revisions = (st) => (st.revisions || []).slice().sort((a, b) => a.n - b.n);
+  const revOf = (st, id) => (id ? (st.revisions || []).find((r) => r.id === id) || null : null);
+  /** rewizja sceny do wyróżnienia (pierwotna biała nie jest wyróżniana) */
+  function sceneRev(st, sc) { const r = revOf(st, sc && sc.rev); return r && r.n > 0 ? r : null; }
+  const revName = (r) => r ? (r.label || revColor(r.color).name) : '';
+  function newRevision(st, o) {
+    o = o || {};
+    st.revisions = st.revisions || [];
+    const n = st.revisions.length ? Math.max(...st.revisions.map((r) => r.n)) + 1 : 0;
+    const color = o.color || revColorAt(n).key;
+    const r = { id: uid(), n, color, label: o.label || '', date: o.date || todayISO(), note: o.note || '', file: o.file || '', at: Date.now(), added: [], changed: [], removed: [] };
+    st.revisions.push(r);
+    st.meta.scriptVersion = revName(r) || st.meta.scriptVersion;
+    st.meta.scriptDate = r.date;
+    return r;
+  }
+  /** domyślne ustawienia następnej rewizji (kolor i nazwa) */
+  function nextRevision(st) {
+    const list = st.revisions || [];
+    const n = list.length ? Math.max(...list.map((r) => r.n)) + 1 : (st.scenes.length ? 1 : 0);
+    const c = revColorAt(n);
+    return { n, color: c.key, label: n ? T('{c} rewizja', { c: c.name }) : T('Biała (pierwotna)'), date: todayISO() };
+  }
+  /** zaczyna historię rewizji od białej, gdy projekt ma sceny sprzed wprowadzenia rewizji */
+  function ensureBaseRevision(st) {
+    if ((st.revisions || []).length || !st.scenes.length) return null;
+    const r = newRevision(st, { color: 'white', label: st.meta.scriptVersion || T('Biała (pierwotna)'), date: st.meta.scriptDate || todayISO(), file: st.meta.scriptFile || '' });
+    st.scenes.forEach((sc) => { if (!sc.rev) sc.rev = r.id; });
+    return r;
+  }
+  const normText = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  /** czy treść sceny zmieniła się między wersjami (tekst, nagłówek, miejsce, pora, długość) */
+  const sceneChanged = (old, p) => normText(old.text) !== normText(p.text) || normText(old.heading) !== normText(p.heading)
+    || (old.ie || '') !== (p.ie || 'INT') || (old.tod || '') !== (p.tod || 'DAY') || (old.eighths || 0) !== (p.eighths || 0);
+  /** zmienione i nowe sceny rewizji, które są już w planie zdjęć – które dni trzeba przejrzeć */
+  function revisionImpact(st, r) {
+    if (!r) return [];
+    const nums = dayNumbers(st), out = [];
+    const touched = new Set(st.scenes.filter((sc) => sc.rev === r.id).map((sc) => sc.id));
+    st.days.forEach((d) => {
+      const ids = d.sceneIds.filter((id) => touched.has(id));
+      if (ids.length) out.push({ dayId: d.id, no: nums.get(d.id) || null, date: d.date, scenes: ids.map((id) => (st.scenes.find((x) => x.id === id) || {}).num) });
+    });
+    (r.removed || []).forEach((x) => { if (x.dayId) { let e = out.find((o) => o.dayId === x.dayId); if (!e) { const d = st.days.find((y) => y.id === x.dayId); if (!d) return; e = { dayId: d.id, no: nums.get(d.id) || null, date: d.date, scenes: [] }; out.push(e); } (e.removedNums = e.removedNums || []).push(x.num); } });
+    return out.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  }
+  function removeRevision(st, id) {
+    const list = revisions(st), i = list.findIndex((r) => r.id === id);
+    if (i < 0) return;
+    const prev = i > 0 ? list[i - 1].id : '';
+    st.scenes.forEach((sc) => { if (sc.rev === id) sc.rev = prev || undefined; if (!sc.rev) delete sc.rev; });
+    st.revisions = st.revisions.filter((r) => r.id !== id);
+  }
+
   function applyImport(st, parsed, o) {
     o = o || {};
     const oldScenes = new Map();
@@ -955,6 +1040,12 @@ const Core = (() => {
     }
     const keepIds = new Set();
     if (o.keep) st.scenes.forEach((s) => (s.manualCast || []).forEach((id) => keepIds.add(id)));
+    // rewizja scenariusza: nowa wersja = kolejny kolor; zaczęcie od nowa = biała
+    const revise = !!(o.keep && st.scenes.length);
+    if (revise) ensureBaseRevision(st); else st.revisions = [];
+    const ro = o.rev || {};
+    const rev = newRevision(st, revise ? Object.assign(nextRevision(st), ro, { file: o.file || '' }) : { color: 'white', label: ro.label || T('Biała (pierwotna)'), date: ro.date, note: ro.note, file: o.file || '' });
+    const idx0 = scheduleIndex(st);
     st.cast.forEach((c) => { if (keepIds.has(c.id) && !newCast.some((n) => n.id === c.id)) newCast.push(c); });
     const scenes = parsed.scenes.map((p) => {
       const old = o.keep ? oldScenes.get(String(p.num).toUpperCase()) : null;
@@ -963,6 +1054,10 @@ const Core = (() => {
         synopsis: old && old.synopsis ? old.synopsis : p.synopsis, notes: old ? old.notes : '', elements: old ? old.elements : {},
         text: p.text, heading: p.heading, cast: p.castNames.map((n) => idOf.get(normName(n))).filter((x) => x != null),
       };
+      if (!revise) sc.rev = rev.id;
+      else if (!old) { sc.rev = rev.id; rev.added.push(sc.num); }
+      else if (sceneChanged(old, p)) { sc.rev = rev.id; rev.changed.push(sc.num); }
+      else if (old.rev) sc.rev = old.rev;
       if (old && old.manualCast && old.manualCast.length) {
         sc.manualCast = old.manualCast.slice();
         old.manualCast.forEach((id) => { if (!sc.cast.includes(id)) sc.cast.push(id); });
@@ -970,6 +1065,7 @@ const Core = (() => {
       return sc;
     });
     const ids = new Set(scenes.map((s) => s.id));
+    if (revise) st.scenes.forEach((sc) => { if (!ids.has(sc.id)) { const at = idx0.get(sc.id); rev.removed.push({ num: sc.num, dayId: at ? at.dayId : '' }); } });
     st.days.forEach((d) => { d.sceneIds = d.sceneIds.filter((id) => ids.has(id)); });
     st.scenes = scenes;
     st.cast = newCast;
@@ -1135,9 +1231,10 @@ const Core = (() => {
     unassign, assign, nextWorkDate, newDayDate, addDay, recalcDates, removeDay, moveDay, autoPlan, dayStats, dayWarnings, dood, reportData,
     BUDGET_CATS, VEHICLE_TYPES, timeToMin, minToTime, clock, sheetOf, ensureSheet, syncRows, syncSheet, initShotRows, setSheetMode, activeRows, callRows, dayStart, dayTimes, hoursCheck, lunchOf,
     SITE_FIELDS, siteEntry, POWER, SITE_CONTRACT, powerLabel, contractLabel, contractOpen,
-    customRow, sceneRowOf, shotRowOf, sceneDesc, shotsOf, shotEta, sheetScenes, sheetCastIds, locationsText, removeScenes, addMap, removeMap,
+    customRow, sceneRowOf, shotRowOf, sceneDesc, keyPeople, shotsOf, shotEta, sheetScenes, sheetCastIds, locationsText, removeScenes, addMap, removeMap,
     DEPTS, CONTRACTS, DIETS, dietLabel, CAST_FIELDS, newCast: castEntry, newCrew, crewName, crewWorks, toggleCrewDay, setCrewAllDays, crewDefaultDays, deptKey, crewGroups, catering, cateringLine,
     SHOT_TYPES, etaMin, sceneMinutes, scenesWithoutEta, shotRows, shotDays, nextShotNo, newShot, num, fmtMoney, CURRENCIES, setCurrency, plnPer, convert, fxInfo, parseNbp, budgetData, transportData, parseRate, rateLines, rateFormula, rateUnitLabel,
+    REV_COLORS, revColor, revColorAt, revisions, revOf, sceneRev, revName, newRevision, nextRevision, ensureBaseRevision, revisionImpact, removeRevision, sceneChanged,
     applyImport, renameSite, mergeCast, removeCast, weekdaysOf, lastDate, normName, memoStats, commitState, releaseState,
     DPR_STATUS, dprOf, ensureDpr, dprSceneIds, dprSummary, shotProgress, moveUnshot,
   };

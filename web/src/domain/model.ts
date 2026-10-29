@@ -1,5 +1,4 @@
-/* Model projektu (TypeScript) i walidacja danych wejściowych (Zod). */
-import * as z from 'zod/v4-mini';
+/* Model projektu (TypeScript). Walidacja plików (Zod) jest w schema.ts – ładowana dopiero przy imporcie. */
 
 export type IE = 'INT' | 'EXT' | 'INT/EXT' | '';
 export type TOD = 'DAY' | 'NIGHT' | 'DAWN' | 'DUSK' | string;
@@ -7,7 +6,7 @@ export type DayKind = 'shoot' | 'off' | 'travel' | 'prelight' | 'build';
 
 export interface Scene {
   id: string; num: string; ie: IE; place: string; site: string; tod: TOD; eighths: number; page: number | null;
-  synopsis: string; notes: string; cast: number[]; elements: Record<string, string[]>; text: string; heading: string; manualCast?: number[];
+  synopsis: string; notes: string; cast: number[]; elements: Record<string, string[]>; text: string; heading: string; manualCast?: number[]; rev?: string;
 }
 export interface CastMember {
   id: number; name: string; actor: string; phone: string; email: string; contract: string; rate: string;
@@ -51,34 +50,18 @@ export interface Trip { id: string; dayId: string; vehicleId: string; time: stri
 export interface Todo { id: string; text: string; done: boolean; due: string; prio: '' | 'high'; created?: number; doneAt?: number | null }
 export interface Media { mime?: string; w: number; h: number; name: string; data: string }
 export interface Meta {
-  title: string; company: string; director: string; producer: string; manager: string; scriptVersion: string; scriptDate: string; scriptFile: string;
+  title: string; company: string; director: string; dop?: string; producer: string; manager: string; scriptVersion: string; scriptDate: string; scriptFile: string;
   startDate: string; weekdays: number[]; pagesPerDay: number; call: string; callNight: string; linesPerPage: number; castMode: string;
   maxWorkH: number; minRestH: number; docLang: string; baseCity?: string;
 }
+/** rewizja scenariusza (kolorowe strony): n = kolejność (0 = biała, pierwotna); listy numerów scen zmienionych w tej rewizji */
+export interface Revision { id: string; n: number; color: string; label: string; date: string; note: string; file: string; at: number; added: string[]; changed: string[]; removed: { num: string; dayId: string }[] }
 export interface Comment { id: string; at: number; by: string; name: string; ref: string; text: string; mentions: string[]; done: boolean; parent?: string }
 export interface ProjectState {
   v: number; meta: Meta; scenes: Scene[]; cast: CastMember[]; days: Day[]; sites: Record<string, Site>; nextCast: number;
   sheets: Record<string, Sheet>; transport: { vehicles: Vehicle[]; trips: Trip[] };
   budget: { items: BudgetItem[]; rates: Record<string, { act?: string; off?: boolean }>; autoRates: boolean; currency: string; fx: Fx | null };
   crew: CrewMember[]; shots: Shot[]; media: Record<string, Media>; catering: { cast: boolean; extra: Record<string, number> };
-  todos: Todo[]; comments?: Comment[]; demo?: boolean; dpr?: Record<string, Dpr>;
+  todos: Todo[]; comments?: Comment[]; revisions?: Revision[]; demo?: boolean; dpr?: Record<string, Dpr>;
 }
 export interface ProjectMeta { id: string; title: string; updatedAt: number; scenes?: number | null; days?: number | null; demo?: boolean; enc?: boolean }
-
-/** minimalny kształt pliku projektu (szczegóły uzupełnia Core.normalize); Zod w wersji „mini” – kilka razy mniejszej */
-export const ProjectFileSchema = z.looseObject({
-  meta: z.optional(z.looseObject({ title: z.optional(z.string()) })),
-  scenes: z.array(z.looseObject({ id: z.optional(z.string()), num: z.optional(z.union([z.string(), z.number()])) })),
-  days: z.optional(z.array(z.looseObject({ id: z.optional(z.string()), kind: z.optional(z.string()), sceneIds: z.optional(z.array(z.string())) }))),
-  cast: z.optional(z.array(z.looseObject({ id: z.number(), name: z.string() }))),
-  crew: z.optional(z.array(z.looseObject({}))),
-  shots: z.optional(z.array(z.looseObject({}))),
-});
-
-export const EncryptedFileSchema = z.object({ klaps: z.literal('encrypted-project'), v: z.number(), plan: z.string().check(z.startsWith('KLAPS-E2E1:')), script: z.string(), media: z.string() });
-
-/** czytelny komunikat z błędu walidacji */
-export function describeZod(e: { issues: { path: PropertyKey[]; code?: string; expected?: unknown; message?: string }[] }): string {
-  const what = (i: { code?: string; expected?: unknown; message?: string }) => (i.code === 'invalid_type' ? 'oczekiwano: ' + String(i.expected) : i.message || i.code || 'błąd');
-  return e.issues.slice(0, 3).map((i) => `${i.path.map(String).join('.') || '(plik)'}: ${what(i)}`).join('; ');
-}

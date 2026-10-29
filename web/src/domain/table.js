@@ -92,9 +92,14 @@ const Table = (() => {
     return wb.SheetNames.map((n) => ({ name: n, rows: window.XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' }).map((r) => r.map((c) => (typeof c === 'number' ? { n: c, s: numStr(c) } : c == null ? '' : String(c)))) }));
   }
 
-  async function readFile(file) {
-    const name = (file.name || '').toLowerCase();
-    const buf = new Uint8Array(await file.arrayBuffer());
+  /** czy plik to stary XLS (wymaga modułu SheetJS ładowanego w oknie programu, nie w wątku roboczym) */
+  const isLegacyXls = (fileName, bytes) => { const buf = new Uint8Array(bytes); const name = (fileName || '').toLowerCase(); const zip = buf[0] === 0x50 && buf[1] === 0x4b; return !zip && ((buf[0] === 0xd0 && buf[1] === 0xcf && buf[2] === 0x11 && buf[3] === 0xe0) || /\.xls$/.test(name)); };
+  async function readFile(file) { return readBytes(file.name, await file.arrayBuffer()); }
+  /** odczyt tabeli z bajtów (działa także w wątku roboczym, poza starym XLS) */
+  async function readBytes(fileName, bytes) {
+    const name = (fileName || '').toLowerCase();
+    const file = { name: fileName };
+    const buf = new Uint8Array(bytes);
     const isZip = buf[0] === 0x50 && buf[1] === 0x4b;
     const isOle = buf[0] === 0xd0 && buf[1] === 0xcf && buf[2] === 0x11 && buf[3] === 0xe0;
     let sheets;
@@ -226,6 +231,6 @@ const Table = (() => {
     return n;
   }
 
-  return { readFile, parseCsv, readXlsx, FIELDS, findHeader, guessMap, preview, apply, cellStr, typeCode, norm };
+  return { readFile, readBytes, isLegacyXls, parseCsv, readXlsx, FIELDS, findHeader, guessMap, preview, apply, cellStr, typeCode, norm };
 })();
 export { Table };

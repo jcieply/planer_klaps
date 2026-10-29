@@ -8,7 +8,7 @@ import { Table } from '../../src/domain/table';
 import { Vault } from '../../src/domain/vault';
 import { Store } from '../../src/domain/store';
 import { Reports } from '../../src/domain/reports';
-import { ProjectFileSchema, EncryptedFileSchema } from '../../src/domain/model';
+import { ProjectFileSchema, EncryptedFileSchema } from '../../src/domain/schema';
 
 const demo = () => {
   const st = Core.newState();
@@ -179,4 +179,75 @@ describe('raporty', () => {
     expect(x[0]).toBe(0x50);
     I18N.lang = 'pl';
   }, 30000);
+});
+
+describe('plan pracy: nagłówek i harmonogram', () => {
+  it('kluczowi twórcy: pola projektu, potem funkcje z ekipy', () => {
+    const st = Core.normalize(demo());
+    st.meta.director = ''; st.meta.dop = ''; st.meta.manager = ''; st.meta.producer = 'Prod X';
+    st.crew.push(Core.newCrew({ first: 'Anna', last: 'Reż', role: 'Reżyser' }), Core.newCrew({ first: 'Jan', last: 'Zdj', role: 'Autor zdjęć' }));
+    expect(Core.keyPeople(st)).toEqual({ dir: 'Anna Reż', dop: 'Jan Zdj', prod: 'Prod X' });
+    st.meta.dop = 'Łukasz Żal'; st.meta.manager = 'Kierownik K';
+    expect(Core.keyPeople(st)).toMatchObject({ dop: 'Łukasz Żal', prod: 'Kierownik K' });
+  });
+  it('opis ujęcia w harmonogramie nie zawiera typu ujęcia (zostaje w shotliście)', () => {
+    const st = Core.normalize(demo());
+    const d = st.days.find((x: any) => x.kind === 'shoot')!;
+    const sc = st.scenes.find((s: any) => d.sceneIds.includes(s.id))!;
+    st.shots = [Object.assign(Core.newShot(st, sc.id), { type: 'CU', desc: 'Dłoń na klamce' })];
+    Core.setSheetMode(st, d.id, 'shots');
+    const row = Core.callRows(st, d).find((r: any) => r.kind === 'shot')!;
+    expect(row.desc).toBe('Dłoń na klamce');
+  });
+});
+
+describe('wersje scenariusza (kolorowe strony)', () => {
+  const parsedWith = (fn: (p: any) => void) => { const p = Parser.fromText(SAMPLE_SCRIPT); fn(p); return p; };
+  it('kolejne kolory jak w branży, potem „podwójna”', () => {
+    expect([0, 1, 2, 3].map((n) => Core.revColorAt(n).key)).toEqual(['white', 'blue', 'pink', 'yellow']);
+    expect(Core.revColorAt(9).key).toBe('white2');
+    expect(Core.revColor('blue2').name).toBe('Podwójna niebieska');
+  });
+  it('pierwszy import = biała; nowa wersja = niebieska z listą zmian i wpływem na plan', () => {
+    const st = Core.normalize(demo());
+    expect(st.revisions!.length).toBe(1);
+    expect(st.revisions![0].color).toBe('white');
+    expect(st.scenes.every((s: any) => s.rev === st.revisions![0].id && !Core.sceneRev(st, s))).toBe(true);
+    const planned = st.days.find((d: any) => d.kind === 'shoot' && d.sceneIds.length >= 2)!;
+    const [a, b] = planned.sceneIds.map((id: string) => st.scenes.find((s: any) => s.id === id)!);
+    const p = parsedWith((p) => {
+      const pa = p.scenes.find((x: any) => x.num === a.num); pa.text += '\nNOWA LINIA DIALOGU.';
+      p.scenes = p.scenes.filter((x: any) => x.num !== b.num);
+      p.scenes.push(Object.assign({}, p.scenes[0], { num: '99', text: 'Zupełnie nowa scena', heading: 'WN. NOWE – DZIEŃ' }));
+    });
+    Core.applyImport(st, p, { keep: true });
+    const r = Core.revisions(st).at(-1)!;
+    expect(r.color).toBe('blue');
+    expect(r.changed).toEqual([a.num]);
+    expect(r.added).toEqual(['99']);
+    expect(r.removed).toEqual([{ num: b.num, dayId: planned.id }]);
+    expect(Core.sceneRev(st, st.scenes.find((s: any) => s.num === a.num)!)!.id).toBe(r.id);
+    const untouched = st.scenes.find((s: any) => s.num !== a.num && s.num !== '99')!;
+    expect(Core.sceneRev(st, untouched)).toBeNull();
+    const imp = Core.revisionImpact(st, r).find((x: any) => x.dayId === planned.id)!;
+    expect(imp.scenes).toEqual([a.num]);
+    expect(imp.removedNums).toEqual([b.num]);
+    expect(st.meta.scriptVersion).toBe('Niebieska rewizja');
+    Core.applyImport(st, Parser.fromText(SAMPLE_SCRIPT), { keep: true, rev: { label: 'Różowe strony' } });
+    expect(Core.revisions(st).at(-1)!).toMatchObject({ color: 'pink', label: 'Różowe strony' });
+  });
+  it('projekt sprzed rewizji dostaje białą bazę; usunięcie rewizji wraca do poprzedniej; „od nowa” czyści historię', () => {
+    const st = Core.normalize(demo());
+    st.revisions = []; st.scenes.forEach((s: any) => { delete s.rev; });
+    const p = parsedWith((p) => { p.scenes[0].text += ' zmiana'; });
+    Core.applyImport(st, p, { keep: true });
+    const list = Core.revisions(st);
+    expect(list.map((r: any) => r.color)).toEqual(['white', 'blue']);
+    const sc = st.scenes[0];
+    expect(sc.rev).toBe(list[1].id);
+    Core.removeRevision(st, list[1].id);
+    expect(sc.rev).toBe(list[0].id);
+    Core.applyImport(st, Parser.fromText(SAMPLE_SCRIPT), { keep: false });
+    expect(Core.revisions(st).map((r: any) => r.color)).toEqual(['white']);
+  });
 });

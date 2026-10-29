@@ -1,16 +1,13 @@
 /* Operacje aplikacji: otwieranie i zapis projektów, import, eksport, szyfrowanie, synchronizacja. */
 import { T } from '../domain/i18n';
 import { Core } from '../domain/core';
-import { Parser } from '../domain/parser';
-import { Reports } from '../domain/reports';
 import { Store } from '../domain/store';
 import { Sync } from '../domain/sync';
-import { Table } from '../domain/table';
-import { demoState } from '../domain/demo';
-import { SAMPLE_SCRIPT } from '../domain/sample';
 import { decodeText, docxXml, extractPdf, MIME, saveFile } from '../domain/files';
 import { KLAPS_EXT, isKlaps, readKlaps } from '../domain/klapsfile';
-import { describeZod, EncryptedFileSchema, ProjectFileSchema, type Geo, type ProjectState } from '../domain/model';
+import type { Geo, ProjectState } from '../domain/model';
+import { fileStem } from '../domain/reportmeta';
+import { heavy } from '../lib/heavy';
 import { I18N, T_ } from '../domain/i18n';
 import { clearHistory, flags, getSt, mutate, useProject } from './project';
 import * as cloud from '../collab/cloud';
@@ -124,14 +121,14 @@ export async function openProject(id: string) {
   }
   if (!st) { toast(T('Nie udało się otworzyć projektu.'), 'bad'); return; }
   P().load(id, st); clearHistory();
-  setUI((s) => { s.sel = []; s.drawer = null; s.imp = { status: 'idle' }; s.f = { q: '', ie: '', tod: '', cast: '', site: '', plan: '' }; s.month = null; s.confirmDel = false; s.tab = 'home'; s.more = false; s.shImp = null; s.csDay = null; });
+  setUI((s) => { s.sel = []; s.drawer = null; s.imp = { status: 'idle' }; s.f = { q: '', ie: '', tod: '', cast: '', site: '', plan: '', rev: '' }; s.month = null; s.confirmDel = false; s.tab = 'home'; s.more = false; s.shImp = null; s.csDay = null; });
   try { localStorage.setItem('klaps.active', id); } catch { /* brak */ }
 }
 /** otwiera projekt z chmury (praca zespołowa, zaszyfrowana end-to-end) */
 export async function openCloudProject(id: string) {
   const st = await openCloud(id);
   P().load(id, st); clearHistory();
-  setUI((s) => { s.sel = []; s.drawer = null; s.imp = { status: 'idle' }; s.f = { q: '', ie: '', tod: '', cast: '', site: '', plan: '' }; s.month = null; s.confirmDel = false; s.tab = st.scenes.length ? 'home' : 'import'; s.more = false; s.shImp = null; s.csDay = null; s.settings = false; });
+  setUI((s) => { s.sel = []; s.drawer = null; s.imp = { status: 'idle' }; s.f = { q: '', ie: '', tod: '', cast: '', site: '', plan: '', rev: '' }; s.month = null; s.confirmDel = false; s.tab = st.scenes.length ? 'home' : 'import'; s.more = false; s.shImp = null; s.csDay = null; s.settings = false; });
   P().setSave('saved');
 }
 /** kopiuje otwarty projekt lokalny do chmury (zostaje też lokalnie) i otwiera kopię w chmurze */
@@ -230,7 +227,7 @@ export async function boot() {
     try {
       if (intent.type === 'open') await openCloudProject(intent.id);
       else {
-        const st = intent.template === 'demo' ? demoState() : undefined;
+        const st = intent.template === 'demo' ? await demo() : undefined;
         if (st && intent.title) st.demo = false;
         await createCloudProject(intent.title || (st ? st.meta.title : T('Nowy projekt')), st);
       }
@@ -246,7 +243,7 @@ export async function boot() {
     try {
       if (intent.type === 'open') await openProject(intent.id);
       else {
-        const st = intent.template === 'demo' ? demoState() : undefined;
+        const st = intent.template === 'demo' ? await demo() : undefined;
         if (st && intent.title) st.demo = false;
         await newProject(intent.title || (st ? null : T('Nowy projekt')), st);
       }
@@ -260,8 +257,8 @@ export async function boot() {
   if (target) {
     try { await openProject(target.id); Sync.start(); return; } catch { /* utwórz nowy */ }
   }
-  const demo = demoState();
-  await newProject(demo.meta.title, demo);
+  const d = await demo();
+  await newProject(d.meta.title, d);
   setUI((s) => { s.tab = 'home'; });
   Sync.start();
   if (Store.mode === 'memory') toast(T('Ta przeglądarka nie zachowuje danych. Zapisuj projekt do pliku w zakładce Eksport.'), 'bad');
@@ -274,9 +271,10 @@ export async function doExport(kind: 'pdf' | 'xlsx', sections: string[], suffix:
   setUI((s) => { s.busy = kind === 'pdf' ? T('Tworzę PDF…') : T('Tworzę plik Excel…'); });
   await new Promise((r) => setTimeout(r, 30));
   try {
-    const bytes = kind === 'pdf' ? await Reports.buildPdf(st, sections, opts) : await Reports.buildXlsx(st, sections, opts);
+    // raport powstaje w wątku roboczym – interfejs pozostaje płynny także przy dużych projektach
+    const bytes = await heavy<Uint8Array>(kind, { st, sections, opts });
     const suf = I18N.withLang(st.meta.docLang || I18N.lang, () => (Array.isArray(suffix) ? T(suffix[0], suffix[1]) : T(suffix)));
-    const name = `${Reports.fileStem(st)}_${suf}.${kind}`;
+    const name = `${fileStem(st)}_${suf}.${kind}`;
     setUI((s) => { s.busy = null; });
     const r = await saveFile(name, bytes, MIME[kind]);
     if (r === 'saved') toast(T('Plik {f} gotowy do pobrania.', { f: name }));
@@ -290,7 +288,7 @@ export async function exportProjectJson() {
   if (!st || !pid) return;
   try {
     const enc = Store.isEncrypted(pid);
-    const name = `${Reports.fileStem(st)}_${T('projekt')}${enc ? '_E2E' : ''}.json`;
+    const name = `${fileStem(st)}_${T('projekt')}${enc ? '_E2E' : ''}.json`;
     const r = await saveFile(name, await Store.exportFile(pid, st), MIME.json);
     if (r === 'saved') toast(enc ? T('Zaszyfrowana kopia projektu {f} gotowa do pobrania. Otworzysz ją tylko hasłem projektu.', { f: name }) : T('Kopia projektu {f} gotowa do pobrania.', { f: name }));
   } catch (e: any) { toast(T('Nie udało się zapisać kopii: {e}', { e: e.message }), 'bad'); }
@@ -301,7 +299,7 @@ export async function exportProjectFile() {
   if (!st || !pid) return;
   try {
     const enc = Store.isEncrypted(pid);
-    const name = `${Reports.fileStem(st)}${enc ? '_E2E' : ''}.${KLAPS_EXT}`;
+    const name = `${fileStem(st)}${enc ? '_E2E' : ''}.${KLAPS_EXT}`;
     const r = await saveFile(name, await Store.exportKlaps(pid, st), MIME.klaps);
     if (r === 'saved') toast(enc ? T('Zaszyfrowana kopia projektu {f} gotowa do pobrania. Otworzysz ją tylko hasłem projektu.', { f: name }) : T('Kopia projektu {f} gotowa do pobrania.', { f: name }));
   } catch (e: any) { toast(T('Nie udało się zapisać kopii: {e}', { e: e.message }), 'bad'); }
@@ -319,6 +317,7 @@ export async function importProjectFile(file: File) {
     }
     let o: unknown;
     try { o = JSON.parse(new TextDecoder().decode(bytes)); } catch { throw new Error(T('To nie jest plik projektu Klaps')); }
+    const { describeZod, EncryptedFileSchema, ProjectFileSchema } = await import('../domain/schema');
     if (Store.isEncryptedFile(o)) {
       const v = EncryptedFileSchema.safeParse(o);
       if (!v.success) throw new Error(describeZod(v.error));
@@ -346,50 +345,63 @@ export async function handleScriptFile(file: File) {
     else if (/\.docx$/.test(name)) raw = { kind: 'docx', xml: await docxXml(buf) };
     else if (/\.(doc|rtf|odt|pages)$/.test(name)) throw new Error(T('Ten format Worda nie jest obsługiwany. Zapisz scenariusz jako .docx lub PDF.'));
     else raw = { kind: 'text', text: decodeText(buf) };
-    const parsed = runParse(raw);
+    setUI((s) => { s.imp.progress = T('Analizuję scenariusz…'); });
+    const parsed = await runParse(raw);
     setUI((s) => { s.imp = { status: 'ready', file: file.name, raw, parsed, keep: getSt().scenes.length > 0 }; });
   } catch (e: any) {
     setUI((s) => { s.imp = { status: 'error', file: file.name, error: e && e.message ? e.message : String(e) }; });
   }
 }
-export function handlePaste() {
+export async function handlePaste() {
   const text = ui().pasteText.trim();
   if (!text) { toast(T('Wklej najpierw tekst scenariusza.'), 'bad'); return; }
   const raw = { kind: 'text', text };
-  try { const parsed = runParse(raw); setUI((s) => { s.imp = { status: 'ready', file: T('Wklejony tekst'), raw, parsed, keep: getSt().scenes.length > 0 }; s.paste = false; }); }
+  try { const parsed = await runParse(raw); setUI((s) => { s.imp = { status: 'ready', file: T('Wklejony tekst'), raw, parsed, keep: getSt().scenes.length > 0 }; s.paste = false; }); }
   catch (e: any) { setUI((s) => { s.imp = { status: 'error', file: T('Wklejony tekst'), error: e.message }; }); }
 }
-export function runParse(raw: any) {
+/** analiza scenariusza w wątku roboczym (długie scenariusze nie zamrażają okna) */
+export function runParse(raw: any): Promise<any> {
   const st = getSt();
   const o: any = { castFromAction: st.meta.castMode || 'all' };
   if (raw.kind === 'text' || raw.kind === 'fdx' || raw.kind === 'docx') o.linesPerPage = +st.meta.linesPerPage || 55;
-  if (raw.kind === 'pdf') return Parser.fromPdfPages(raw.pages, o);
-  if (raw.kind === 'fdx') return Parser.fromFdx(raw.text, o);
-  if (raw.kind === 'docx') return Parser.fromDocxXml(raw.xml, o);
-  return Parser.fromText(raw.text, o);
+  return heavy('parse', { raw, o });
 }
-export function reparse() { const imp = ui().imp; if (imp.raw) { const parsed = runParse(imp.raw); setUI((s) => { s.imp.parsed = parsed; }); } }
+export async function reparse() { const imp = ui().imp; if (imp.raw) { const parsed = await runParse(imp.raw); setUI((s) => { if (s.imp.raw === imp.raw) s.imp.parsed = parsed; }); } }
 export function applyImportNow() {
   const imp = ui().imp, p = imp.parsed;
   if (!p || !p.scenes.length) return;
   if (getSt().scenes.length) void snapshotBefore(T_('Przed importem scenariusza'));
-  mutate((st) => { Core.applyImport(st, p, { keep: !!imp.keep, title: p.title, file: imp.file }); st.demo = false; });
+  const revise = !!imp.keep && getSt().scenes.length > 0;
+  mutate((st) => { Core.applyImport(st, p, { keep: !!imp.keep, title: p.title, file: imp.file, rev: imp.rev }); st.demo = false; });
   setUI((s) => { s.imp = { status: 'idle' }; s.sel = []; s.drawer = null; s.confirmReplace = false; s.tab = 'board'; });
   const st = getSt();
+  if (revise) {
+    const r = Core.revisions(st).at(-1)!, days = Core.revisionImpact(st, r).filter((x) => x.no);
+    const what = [r.changed.length && T('zmienione: {n}', { n: r.changed.length }), r.added.length && T('nowe: {n}', { n: r.added.length }), r.removed.length && T('usunięte: {n}', { n: r.removed.length })].filter(Boolean).join(', ');
+    toast(T('{r}: {what}.', { r: Core.revName(r), what: what || T('bez zmian w scenach') }) + (days.length ? ' ' + T('Do przejrzenia dni zdjęciowe: {d}.', { d: days.map((x) => x.no).join(', ') }) : ''));
+    return;
+  }
   toast(T('Utworzono rozpiskę: {a}, {b}.', { a: `${st.scenes.length} ${pl(st.scenes.length, 'scena', 'sceny', 'scen')}`, b: `${st.cast.length} ${pl(st.cast.length, 'postać', 'postacie', 'postaci')}` }));
 }
-export function loadSample() {
-  const raw = { kind: 'text', text: SAMPLE_SCRIPT };
-  try { const parsed = runParse(raw); setUI((s) => { s.imp = { status: 'ready', file: T('przykładowy scenariusz') + '.fountain', raw, parsed, keep: getSt().scenes.length > 0 }; }); }
-  catch (e: any) { setUI((s) => { s.imp = { status: 'error', file: T('przykład'), error: e.message }; }); }
+export async function loadSample() {
+  try {
+    const { SAMPLE_SCRIPT } = await import('../domain/sample');
+    const raw = { kind: 'text', text: SAMPLE_SCRIPT };
+    const parsed = await runParse(raw);
+    setUI((s) => { s.imp = { status: 'ready', file: T('przykładowy scenariusz') + '.fountain', raw, parsed, keep: getSt().scenes.length > 0 }; });
+  } catch (e: any) { setUI((s) => { s.imp = { status: 'error', file: T('przykład'), error: e.message }; }); }
 }
+/** projekt demonstracyjny (moduł ładowany tylko wtedy, gdy jest potrzebny) */
+const demo = async (): Promise<ProjectState> => (await import('../domain/demo')).demoState() as ProjectState;
 
 /* ---------- import shotlisty (XLSX / XLS / CSV) ---------- */
+const tableMod = () => import('../domain/table').then((m) => m.Table);
 export async function readShotFile(file: File) {
   setUI((s) => { s.busy = T('Czytam plik…'); });
   await new Promise((r) => setTimeout(r, 20));
   try {
-    const data = await Table.readFile(file);
+    // odczyt i rozpakowanie arkusza w wątku roboczym (stary XLS – w oknie programu)
+    const [data, Table] = await Promise.all([heavy<any>('table', { name: file.name, bytes: await file.arrayBuffer() }), tableMod()]);
     let best = 0, bestN = -1;
     data.sheets.forEach((sh: any, i: number) => { const h = Table.findHeader(sh.rows); const mp = Table.guessMap(sh.rows[h] || []); const n = Object.values(mp).filter((v: any) => v >= 0).length; if (n > bestN) { bestN = n; best = i; } });
     const header = Table.findHeader(data.sheets[best].rows);
@@ -399,8 +411,9 @@ export async function readShotFile(file: File) {
   }
   setUI((s) => { s.busy = null; });
 }
-export function applyShotImport() {
+export async function applyShotImport() {
   const m = ui().shImp; if (!m) return;
+  const Table = await tableMod();
   const sheet = m.data.sheets[m.sheet] || m.data.sheets[0];
   const pv = Table.preview(getSt(), sheet.rows, m.header, m.map, { create: m.create });
   if (getSt().shots.length) void snapshotBefore(T_('Przed importem shotlisty'));

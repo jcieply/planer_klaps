@@ -3,9 +3,10 @@ import { useRef, useState } from 'react';
 import { T } from '../domain/i18n';
 import { Core } from '../domain/core';
 import type { ProjectState } from '../domain/model';
-import { mutate } from '../state/project';
+import { mutate, useProject } from '../state/project';
+import { usePrefs } from '../state/prefs';
 import { goTab, setUI } from '../state/ui';
-import { Btn, PageHead } from './ui';
+import { Btn, PageHead, Select } from './ui';
 
 /** pusty projekt: zachęta do wczytania scenariusza albo dodania sceny */
 export function NeedScenes({ onAdd }: { onAdd: () => void }) {
@@ -34,7 +35,7 @@ export function addScene() {
     id = Core.uid();
     st.scenes.push({ id, num, ie: 'INT', place: '', site: '', tod: 'DAY', eighths: 1, page: null, synopsis: '', notes: '', cast: [], elements: {}, text: '', heading: '' } as any);
   });
-  setUI((s) => { s.drawer = id; s.f = { q: '', ie: '', tod: '', cast: '', site: '', plan: '' }; s.showScript = false; });
+  setUI((s) => { s.drawer = id; s.f = { q: '', ie: '', tod: '', cast: '', site: '', plan: '', rev: '' }; s.showScript = false; });
 }
 /** przewinięcie do dnia w kalendarzówce */
 export function scrollToDay(id: string) {
@@ -57,3 +58,11 @@ export function NewName({ id, act, placeholder, label, button, onAdd }: { id: st
   return <div className="row" style={{ marginTop: 12 }}><input ref={ref} className="inp" style={{ maxWidth: 280 }} id={id} placeholder={placeholder} aria-label={label} value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } }} />
     <Btn act={act} icon="plus" onClick={go}>{button}</Btn></div>;
 }
+
+/** język dokumentów PDF i Excel (ustawienia projektu i eksport) */
+export function DocLang() {
+  const st = useProject((s) => s.st)!;
+  const lang = usePrefs((p) => p.lang);
+  return <Select data-act-change="doc-lang" value={st.meta.docLang || ''} options={[['', T('Jak interfejs ({l})', { l: lang.toUpperCase() })], ['pl', 'Polski (PL)'], ['en', 'English (EN)']]} onChange={(v) => mutate((x) => { x.meta.docLang = v; })} />;
+}
+

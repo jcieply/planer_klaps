@@ -13,9 +13,9 @@ import { useCollab } from '../collab/session';
 import { cloudConfigured, currentUser } from '../collab/cloud';
 import { BlurInput, Btn, Deferred, Field, Icon, Modal, Seg, TextInput, cx } from '../components/ui';
 import { useSyncStatus } from './Shell';
-import { DocLang } from './Misc';
 import { desktop } from '../desktop/bridge';
 import { backToLauncher } from '../desktop/install';
+import { DocLang } from '../components/common';
 
 export function Settings() {
   const open = useUI((s) => s.settings);
@@ -48,7 +48,7 @@ function SettingsBody() {
     <SecuritySettings />
     <SyncSettings />
     <div className="set-sec"><h3>{T('Projekt')}</h3>
-      <div className="fgrid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>{f(T('Tytuł filmu'), 'title')}{f(T('Firma produkcyjna'), 'company')}{f(T('Reżyser'), 'director')}{f(T('Producent'), 'producer')}{f(T('Kierownik produkcji'), 'manager')}{f(T('Wersja scenariusza'), 'scriptVersion')}{f(T('Data wersji scenariusza'), 'scriptDate', 'date')}
+      <div className="fgrid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>{f(T('Tytuł filmu'), 'title')}{f(T('Firma produkcyjna'), 'company')}{f(T('Reżyser'), 'director')}{f(T('Autor zdjęć (DOP)'), 'dop')}{f(T('Producent'), 'producer')}{f(T('Kierownik produkcji'), 'manager')}{f(T('Wersja scenariusza'), 'scriptVersion')}{f(T('Data wersji scenariusza'), 'scriptDate', 'date')}
         <Field label={T('Miejscowość bazy produkcji (pogoda)')}><TextInput value={m.baseCity || ''} bind="meta.baseCity" placeholder={T('gdy lokacja nie ma adresu, np. Warszawa')} onCommit={setMeta('baseCity')} /></Field>
         <Field label={T('Język dokumentów PDF i Excel')}><DocLang /></Field></div></div>
     <div><span className="lbl">{T('Dni robocze ekipy')}</span><div className="wd">{wd.map((n) => <label key={n}><input type="checkbox" data-act-change="wd-toggle" data-n={n} checked={m.weekdays.includes(n)} onChange={(e) => {

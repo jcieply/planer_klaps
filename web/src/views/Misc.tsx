@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { T } from '../domain/i18n';
 import { Core } from '../domain/core';
-import { Reports } from '../domain/reports';
+import * as Reports from '../domain/reportmeta';
 import type { BudgetItem, ProjectState, Trip, Vehicle } from '../domain/model';
 import { mutate, useProject } from '../state/project';
 import { goTab, setUI, useUI } from '../state/ui';
@@ -10,7 +10,7 @@ import { usePrefs } from '../state/prefs';
 import { doExport, exportProjectFile, exportProjectJson, importProjectFile } from '../state/actions';
 import { plN, sitesList, workOptions } from '../lib/format';
 import { BlurInput, Btn, Datalist, ExportBtns, Field, Icon, PageHead, Select, Stat, TextInput, TimeInput, cx } from '../components/ui';
-import { NoDays } from '../components/common';
+import { DocLang, NoDays } from '../components/common';
 import { fetchRates, fxStale } from '../lib/fx';
 
 /* ================= DOOD ================= */
@@ -172,7 +172,7 @@ export function Export() {
   };
   const any = Object.values(x).some(Boolean);
   const docLang = st.meta.docLang || lang;
-  const sections = () => Reports.SECTIONS.map((s: [string]) => s[0]).filter((k: string) => x[k]);
+  const sections = () => Reports.SECTIONS.map((s) => s[0]).filter((k: string) => x[k]);
   return <>
     <PageHead title={T('Eksport')} sub={T('Wybierz, co ma się znaleźć w pliku. PDF ma format A4 poziomo, a plany pracy, ekipa i catering pionowo. Excel ma osobne arkusze z formułami sum.')} />
     <div className="exp-grid"><div className="card"><div className="card-h"><h2>{T('Zawartość pliku')}</h2><Field label={T('Język dokumentu')} style={{ marginLeft: 'auto', minWidth: 160 }}><DocLang /></Field></div><div className="card-b">
@@ -189,9 +189,3 @@ export function Export() {
           : <div key={d.id}><b>D{nums.get(d.id)}</b> · {Core.fmtDatePL(d.date)} · {plN(d.sceneIds.length, 'scena', 'sceny', 'scen')} · {Core.fmtEighths(Core.dayStats(st, d).eighths)} {T('str.')}</div>) : <span className="muted">{T('Nie ma jeszcze dni zdjęciowych.')}</span>}</div></div></div></div>
   </>;
 }
-export function DocLang() {
-  const st = useProject((s) => s.st)!;
-  const lang = usePrefs((p) => p.lang);
-  return <Select data-act-change="doc-lang" value={st.meta.docLang || ''} options={[['', T('Jak interfejs ({l})', { l: lang.toUpperCase() })], ['pl', 'Polski (PL)'], ['en', 'English (EN)']]} onChange={(v) => mutate((x) => { x.meta.docLang = v; })} />;
-}
-

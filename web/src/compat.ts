@@ -12,6 +12,7 @@ import { setUI, toast, useUI } from './state/ui';
 import { usePrefs } from './state/prefs';
 import { deleteProject, doSave, exportProjectJson, newProject, openProject } from './state/actions';
 import { sitesList } from './lib/format';
+import { heavy, heavyState } from './lib/heavy';
 
 export function installCompat() {
   const w = window as any;
@@ -40,7 +41,7 @@ export function installCompat() {
     PROJECTS: { get: () => useProject.getState().projects, configurable: true },
   });
   Object.assign(w, {
-    UI, PREFS, commit, Core, Reports, Store, Sync, Vault, Table, I18N, toast, openProject, newProject, doSave, exportProjectJson, deleteProject,
+    UI, PREFS, commit, heavy, heavyState, Core, Reports, Store, Sync, Vault, Table, I18N, toast, openProject, newProject, doSave, exportProjectJson, deleteProject,
     sitesList: () => sitesList(useProject.getState().st!),
     undoHistory: () => useProject.temporal.getState(),
     render: () => {}, renderNow: () => {}, renderToastOnly: () => {},

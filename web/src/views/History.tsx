@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { T } from '../domain/i18n';
 import { Store, type SnapMeta } from '../domain/store';
-import { Reports } from '../domain/reports';
+import * as Reports from '../domain/reportmeta';
 import { MIME, saveFile } from '../domain/files';
 import { KLAPS_EXT } from '../domain/klapsfile';
 import { useProject } from '../state/project';

@@ -27,7 +27,7 @@ export function insertRow(st: ProjectState, dayId: string, row: SheetRow, where:
   if (where !== 'end') { while (at > 0 && rows[at - 1].kind === 'custom' && !(+(rows[at - 1].dur || 0) > 0)) at--; }
   rows.splice(at, 0, row);
 }
-export function filteredScenes(st: ProjectState, f: { q: string; ie: string; tod: string; cast: string; site: string; plan: string }) {
+export function filteredScenes(st: ProjectState, f: { q: string; ie: string; tod: string; cast: string; site: string; plan: string; rev?: string }) {
   const idx = Core.scheduleIndex(st);
   const q = f.q.trim().toLowerCase();
   const cmap = Core.castMap(st);
@@ -38,6 +38,8 @@ export function filteredScenes(st: ProjectState, f: { q: string; ie: string; tod
     if (f.site && (s.site || s.place) !== f.site) return false;
     if (f.plan === 'planned' && !idx.has(s.id)) return false;
     if (f.plan === 'unplanned' && idx.has(s.id)) return false;
+    if (f.rev === 'changed' && !Core.sceneRev(st, s)) return false;
+    if (f.rev && f.rev !== 'changed' && s.rev !== f.rev) return false;
     if (q) {
       const hay = (s.num + ' ' + s.place + ' ' + s.site + ' ' + s.synopsis + ' ' + s.notes + ' ' + s.cast.map((id) => (cmap.get(id) || {}).name || '').join(' ')).toLowerCase();
       if (!hay.includes(q)) return false;

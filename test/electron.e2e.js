@@ -69,6 +69,16 @@ async function closeApp(app) {
   // okna Ustawienia i Historia otwierają się i zamykają bez błędów
   await mp.click('[data-act="history-open"]'); await mp.waitForSelector('.hist'); await mp.keyboard.press('Escape'); await mp.waitForSelector('.hist', { state: 'detached' });
   await mp.click('[data-act="settings-open"]'); await mp.waitForSelector('input[data-bind="meta.title"]'); await mp.keyboard.press('Escape'); await mp.waitForSelector('.modal', { state: 'detached' });
+  // wątek roboczy (blob) działa pod CSP programu, a zakładki ładowane przy pierwszym otwarciu wczytują się z klaps://
+  assert.strictEqual(await mp.evaluate(() => new Promise((res) => {
+    try { const w = new Worker(URL.createObjectURL(new Blob(['postMessage(7)'], { type: 'text/javascript' }))); w.onmessage = (e) => res(e.data); w.onerror = () => res('error'); setTimeout(() => res('timeout'), 5000); }
+    catch (e) { res('throw ' + e.message); }
+  })), 7, 'wątek roboczy działa w oknie programu');
+  for (const t of ['board', 'schedule', 'callsheet', 'shotlist', 'budget', 'export', 'home']) {
+    await mp.click(`.side .nav-i[data-tab="${t}"]`);
+    await mp.waitForSelector(`.side .nav-i[data-tab="${t}"][aria-current="page"]`);
+    await mp.waitForSelector('.view-loading', { state: 'detached', timeout: 10000 });
+  }
   await sleep(600); await shot(mp, '4-main');
 
   /* ===== 3. zmiana w projekcie i natychmiastowe zamknięcie okna (zapis nie może zginąć) ===== */
