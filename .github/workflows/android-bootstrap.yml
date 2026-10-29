@@ -1,0 +1,25 @@
+name: Android bootstrap (jednorazowo)
+on:
+  push:
+    branches: [android-bootstrap]
+jobs:
+  gen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Capacitor i natywny projekt Androida
+        working-directory: web
+        run: |
+          mkdir -p /tmp/pkgs dist-android && echo '<!doctype html><title>Klaps</title>' > dist-android/index.html
+          npm init -y >/dev/null 2>&1 || true
+          npm install --no-audit --no-fund --no-save @capacitor/core @capacitor/cli @capacitor/android @capacitor/filesystem @capacitor/share @capacitor/preferences @capacitor/app
+          for p in core cli android filesystem share preferences app; do (cd /tmp/pkgs && npm pack @capacitor/$p >/dev/null); done
+          npm ls @capacitor/core @capacitor/cli @capacitor/android @capacitor/filesystem @capacitor/share @capacitor/preferences @capacitor/app --depth=0 | tee /tmp/pkgs/versions.txt
+          npx cap add android
+          npx cap --version >> /tmp/pkgs/versions.txt
+          rm -rf android/app/src/main/assets/public
+          tar czf /tmp/pkgs/android.tgz android
+      - uses: actions/upload-artifact@v4
+        with: { name: capacitor-bootstrap, path: /tmp/pkgs }
