@@ -2,8 +2,11 @@ name: Android bootstrap (jednorazowo)
 on:
   push:
     branches: [android-bootstrap]
+permissions:
+  contents: write
 jobs:
   gen:
+    if: "!contains(github.event.head_commit.message, '[wygenerowane]')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,5 +24,10 @@ jobs:
           npx cap --version >> /tmp/pkgs/versions.txt
           rm -rf android/app/src/main/assets/public
           tar czf /tmp/pkgs/android.tgz android
-      - uses: actions/upload-artifact@v4
-        with: { name: capacitor-bootstrap, path: /tmp/pkgs }
+      - name: Zapis wyniku na gałęzi
+        run: |
+          mkdir -p bootstrap && cp /tmp/pkgs/* bootstrap/
+          git config user.name "github-actions" && git config user.email "github-actions@users.noreply.github.com"
+          git add bootstrap web/android
+          git commit -m "Android: wygenerowany projekt Capacitor i paczki [wygenerowane]"
+          git push
