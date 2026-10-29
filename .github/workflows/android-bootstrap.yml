@@ -18,7 +18,7 @@ jobs:
           mkdir -p /tmp/pkgs dist-android && echo '<!doctype html><title>Klaps</title>' > dist-android/index.html
           npm init -y >/dev/null 2>&1 || true
           npm install --no-audit --no-fund --no-save @capacitor/core @capacitor/cli @capacitor/android @capacitor/filesystem @capacitor/share @capacitor/preferences @capacitor/app
-          for p in core cli android filesystem share preferences app; do (cd /tmp/pkgs && npm pack @capacitor/$p >/dev/null); done
+          for p in core cli android filesystem share preferences app synapse; do (cd /tmp/pkgs && npm pack @capacitor/$p >/dev/null); done
           npm ls @capacitor/core @capacitor/cli @capacitor/android @capacitor/filesystem @capacitor/share @capacitor/preferences @capacitor/app --depth=0 | tee /tmp/pkgs/versions.txt
           npx cap add android
           npx cap --version >> /tmp/pkgs/versions.txt
@@ -28,6 +28,6 @@ jobs:
         run: |
           mkdir -p bootstrap && cp /tmp/pkgs/* bootstrap/
           git config user.name "github-actions" && git config user.email "github-actions@users.noreply.github.com"
-          git add bootstrap web/android
+          git add -f bootstrap
           git commit -m "Android: wygenerowany projekt Capacitor i paczki [wygenerowane]"
           git push
