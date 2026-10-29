@@ -1,0 +1,10 @@
+klaps-planer-web@2.6.0 /home/runner/work/planer_klaps/planer_klaps/web
+├── @capacitor/android@8.6.0 extraneous
+├── @capacitor/app@8.1.2 extraneous
+├── @capacitor/cli@8.6.0 extraneous
+├── @capacitor/core@8.6.0 extraneous
+├── @capacitor/filesystem@8.1.5 extraneous
+├── @capacitor/preferences@8.0.1 extraneous
+└── @capacitor/share@8.0.3 extraneous
+
+8.6.0
