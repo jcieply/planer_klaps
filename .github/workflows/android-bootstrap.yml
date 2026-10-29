@@ -20,7 +20,7 @@ jobs:
           npm install --no-audit --no-fund --no-save @capacitor/core @capacitor/cli @capacitor/android @capacitor/filesystem @capacitor/share @capacitor/preferences @capacitor/app
           for p in core cli android filesystem share preferences app synapse; do (cd /tmp/pkgs && npm pack @capacitor/$p >/dev/null); done
           npm ls @capacitor/core @capacitor/cli @capacitor/android @capacitor/filesystem @capacitor/share @capacitor/preferences @capacitor/app --depth=0 | tee /tmp/pkgs/versions.txt
-          npx cap add android
+          rm -rf android && npx cap add android
           npx cap --version >> /tmp/pkgs/versions.txt
           rm -rf android/app/src/main/assets/public
           tar czf /tmp/pkgs/android.tgz android
