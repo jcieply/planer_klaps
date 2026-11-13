@@ -10,14 +10,14 @@ import { Share } from '@capacitor/share';
 import { App } from '@capacitor/app';
 import type { DesktopProfile, DesktopSession, KlapsDesktop, LaunchIntent, LicenseResult, LicenseStatus } from '../desktop/bridge';
 import { intentFromUrl, intentToQuery } from '../desktop/bridge';
-import { checkKey, keyHint, knownHash } from '../lib/license';
+import { checkKey, keyHint, normalizeKey } from '../lib/license';
 
 declare const __KLAPS_VERSION__: string;
 
 const DIR = 'Projekty';
 const SAFE = /^[A-Za-z0-9_-]{1,80}$/;
 const SECRET = /^[A-Za-z0-9_.:-]{1,120}$/;
-const K = { profile: 'klaps.profile', license: 'klaps.license', secret: 'klaps.secret.' };
+const K = { profile: 'klaps.profile', license: 'klaps.license.key', secret: 'klaps.secret.' };
 
 /* ---------- pliki ---------- */
 const at = (name: string) => ({ path: `${DIR}/${name}`, directory: Directory.Data });
@@ -131,17 +131,17 @@ const profile: KlapsDesktop['profile'] = {
 
 /* ---------- licencja ---------- */
 async function licenseStatus(): Promise<LicenseStatus> {
-  let o: any = null;
-  try { o = JSON.parse((await pget(K.license)) || 'null'); } catch { o = null; }
-  if (!o || typeof o.hash !== 'string') return { active: false };
-  const k = knownHash(o.hash);
-  if (!k) return { active: false, revoked: true };
-  return { active: true, id: k.id, label: k.label, at: +o.at || 0, hint: typeof o.hint === 'string' ? o.hint : '' };
+  // dowodem jest sam klucz, sprawdzany przy każdym uruchomieniu (zapisany skrót niczego nie aktywuje)
+  const saved = await pget(K.license);
+  if (!saved) return { active: false };
+  const c = await checkKey(saved);
+  if (!c.ok) return { active: false, revoked: true };
+  return { active: true, id: c.id, label: c.label, hint: keyHint(saved) };
 }
 async function licenseActivate(key: string): Promise<LicenseResult> {
   const c = await checkKey(key);
   if (!c.ok) { await new Promise((r) => setTimeout(r, 700)); return c; }
-  await pset(K.license, JSON.stringify({ v: 1, hash: c.hash, at: Date.now(), hint: keyHint(key) }));
+  await pset(K.license, normalizeKey(key));
   return { ok: true, id: c.id };
 }
 

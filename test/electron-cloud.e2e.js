@@ -16,12 +16,14 @@ const watch = (page, tag) => {
 };
 const log = (m) => console.log('  ' + m);
 
+const LIC = require('./license-fixture').testLicense();
 async function person(tag) {
   const data = fs.mkdtempSync(path.join(os.tmpdir(), `klaps-${tag}-data-`));
   const projects = fs.mkdtempSync(path.join(os.tmpdir(), `klaps-${tag}-proj-`));
   const env = Object.assign({}, process.env, { KLAPS_DATA_DIR: data, KLAPS_PROJECTS_DIR: projects, KLAPS_FORCE_LAUNCHER: '1', KLAPS_E2E_CLOUD: '1' });
   // licencja aktywna od początku (test dotyczy chmury, aktywację sprawdza electron.e2e.js)
-  require('../electron/license').activate(data, 'KLAPS-2026-7Q4M-PROD');
+  require('./license-fixture').seed(data, LIC.key);
+  Object.assign(env, LIC.env);
   const p = { tag, data, projects, app: null };
   p.start = async () => {
     p.app = await electron.launch({ args: ['--no-sandbox', path.join(__dirname, '..')], env });

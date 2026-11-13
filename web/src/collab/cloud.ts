@@ -50,7 +50,7 @@ export function client(): Promise<SupabaseClient> {
 const MSG: Record<string, string> = {
   'klaps:not_signed_in': 'Zaloguj się, aby korzystać z chmury.', 'klaps:forbidden': 'Nie masz do tego uprawnień.', 'klaps:not_member': 'Nie należysz do tego projektu.',
   'klaps:invalid_invite': 'Kod zaproszenia jest nieprawidłowy, wygasł albo został wykorzystany.', 'klaps:bad_role': 'Niepoprawna rola.', 'klaps:owner_cannot_leave': 'Właściciel nie może opuścić projektu – przekaż go komuś innemu albo usuń projekt.',
-  'klaps:avatar_too_large': 'Zdjęcie jest za duże.', 'Invalid login credentials': 'Zły e-mail lub hasło.', 'User already registered': 'Konto z tym adresem już istnieje – zaloguj się.',
+  'klaps:avatar_too_large': 'Zdjęcie jest za duże.', 'klaps:bad_avatar': 'To zdjęcie ma nieobsługiwany format. Wybierz plik JPG, PNG albo WebP.', 'klaps:too_big': 'Ta zmiana jest za duża, aby wysłać ją do chmury.', 'klaps:quota': 'Osiągnięto limit (liczba projektów, urządzeń, zaproszeń albo załączników).', 'Invalid login credentials': 'Zły e-mail lub hasło.', 'User already registered': 'Konto z tym adresem już istnieje – zaloguj się.',
   'klaps:stale_key': 'Właściciel zmienił klucz projektu. Odświeżam klucz…', 'klaps:head_moved': 'Ktoś właśnie zmienił projekt. Spróbuj jeszcze raz.', 'klaps:bad_epoch': 'Zmiana klucza się nie powiodła. Spróbuj jeszcze raz.',
   'Email not confirmed': 'Potwierdź adres e-mail (link w wiadomości) i zaloguj się ponownie.',
 };

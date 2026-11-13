@@ -21,7 +21,7 @@ export function LicenseStep({ status, onDone }: { status: LicenseStatus | null; 
       const r = await api.activate(key);
       if (r.ok) { await onDone(); return; }
       setErr(r.reason === 'empty' ? T('Wpisz klucz licencyjny.')
-        : r.reason === 'format' ? T('To nie wygląda na klucz Klaps Planer. Klucz ma postać KLAPS-RRRR-XXXX-XXXX.')
+        : r.reason === 'format' ? T('To nie wygląda na klucz Klaps Planer. Klucz ma postać KLAPS-XXXXX-XXXXX-XXXXX-XXXXX.')
           : T('Odmowa dostępu: ten klucz licencyjny jest nieprawidłowy. Sprawdź, czy został przepisany bez błędów.'));
     } catch (x: any) { setErr(x && x.message ? x.message : String(x)); }
     setBusy(false);
@@ -33,7 +33,7 @@ export function LicenseStep({ status, onDone }: { status: LicenseStatus | null; 
     {status?.revoked && <p className="lc-err" role="alert">{T('Klucz zapisany na tym urządzeniu nie jest już ważny. Wpisz nowy klucz.')}</p>}
     <label className="lc-f"><span>{T('Klucz licencyjny')}</span>
       <input className={'lc-inp lc-key' + (err ? ' bad' : '')} id="lc-key" value={key} autoFocus maxLength={40} autoComplete="off" spellCheck={false} autoCapitalize="characters" inputMode="text"
-        placeholder="KLAPS-RRRR-XXXX-XXXX" aria-invalid={!!err} aria-describedby={err ? 'lc-lic-err' : undefined}
+        placeholder="KLAPS-XXXXX-XXXXX-XXXXX-XXXXX" aria-invalid={!!err} aria-describedby={err ? 'lc-lic-err' : undefined}
         onChange={(e) => { setKey(e.target.value.toUpperCase()); setErr(''); }} /></label>
     {err && <p id="lc-lic-err" className="lc-err" role="alert">{err}</p>}
     <div className="lc-row lc-lic-go">

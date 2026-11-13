@@ -3,12 +3,15 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+# token workflowu może tylko czytać repozytorium (żaden krok nie zapisuje do niego)
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22 }
       - run: npm install --no-audit --no-fund
       - run: npm install --no-audit --no-fund
@@ -23,7 +26,7 @@ jobs:
       - name: Show log on failure
         if: failure()
         run: echo "::error::$(tail -c 2500 build.log | tr '\n' '|' | tr '%' ' ')"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Klaps-Planer-macOS
           path: dist/*.dmg

@@ -177,8 +177,8 @@ body { background: var(--bg); user-select: none; -webkit-user-select: none; curs
 .lc-lic { gap: 16px; }
 .lc-lic-ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: rgba(242,194,48,.14); color: var(--accent); }
 .lc-lic-ic .ic svg { width: 22px; height: 22px; }
-.lc-key { font-family: var(--f-mono); font-size: 17px; letter-spacing: .08em; text-transform: uppercase; height: 48px; }
-.lc-key::placeholder { letter-spacing: .08em; opacity: .45; }
+.lc-key { font-family: var(--f-mono); font-size: 15px; letter-spacing: .04em; text-transform: uppercase; height: 48px; }
+.lc-key::placeholder { letter-spacing: .04em; opacity: .45; }
 .lc-key.bad { border-color: var(--bad); box-shadow: 0 0 0 3px var(--bad-soft); animation: lc-shake .32s ease-in-out; }
 @keyframes lc-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 .lc-lic-go { align-items: center; justify-content: space-between; gap: 12px; }

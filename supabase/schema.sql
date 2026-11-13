@@ -163,11 +163,21 @@ revoke all on public.klaps_profiles, public.klaps_projects, public.klaps_members
 grant select on public.klaps_profiles, public.klaps_projects, public.klaps_members, public.klaps_invites, public.klaps_ops, public.klaps_snapshots, public.klaps_blobs, public.klaps_activity, public.klaps_devices, public.klaps_keyboxes to authenticated;
 
 -- ---------- funkcje (jedyna droga zapisu) ----------
+/* Limity rozmiaru: klient wysyła szyfrogramy, których serwer nie rozumie, więc jedyną ochroną przed zapchaniem bazy
+   (celowym albo przez błąd) jest twardy limit długości każdego pola i liczby wpisów. */
+create or replace function public.klaps_limit(p text, p_max int) returns void
+language plpgsql immutable as $$
+begin
+  if length(coalesce(p, '')) > p_max then raise exception 'klaps:too_big'; end if;
+end $$;
+
 create or replace function public.klaps_upsert_profile(p_name text, p_position text, p_avatar text, p_color text) returns void
 language plpgsql security definer set search_path = public as $$
 begin
   if auth.uid() is null then raise exception 'klaps:not_signed_in'; end if;
   if length(coalesce(p_avatar, '')) > 90000 then raise exception 'klaps:avatar_too_large'; end if;
+  -- avatar to wyłącznie osadzony obrazek (data URL) – nigdy adres zewnętrzny, który śledziłby osoby oglądające listę
+  if coalesce(p_avatar, '') <> '' and p_avatar !~ '^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$' then raise exception 'klaps:bad_avatar'; end if;
   insert into public.klaps_profiles(id, name, position, avatar, color, updated_at)
   values (auth.uid(), left(coalesce(p_name, ''), 80), left(coalesce(p_position, ''), 80), coalesce(p_avatar, ''), left(coalesce(p_color, ''), 20), now())
   on conflict (id) do update set name = excluded.name, position = excluded.position, avatar = excluded.avatar, color = excluded.color, updated_at = now();
@@ -178,6 +188,9 @@ language plpgsql security definer set search_path = public as $$
 declare pid uuid;
 begin
   if auth.uid() is null then raise exception 'klaps:not_signed_in'; end if;
+  perform public.klaps_limit(p_title_enc, 2000);
+  perform public.klaps_limit(p_snapshot, 40000000);
+  if (select count(*) from public.klaps_projects where owner = auth.uid()) >= 200 then raise exception 'klaps:quota'; end if;
   insert into public.klaps_profiles(id) values (auth.uid()) on conflict do nothing;
   insert into public.klaps_projects(owner, title_enc) values (auth.uid(), p_title_enc) returning id into pid;
   insert into public.klaps_members(project_id, user_id, role) values (pid, auth.uid(), 'owner');
@@ -192,6 +205,8 @@ begin
   r := public.klaps_role(p_project);
   if r is null then raise exception 'klaps:not_member'; end if;
   if r not in ('owner', 'editor') then raise exception 'klaps:forbidden'; end if;
+  perform public.klaps_limit(p_client, 80);
+  perform public.klaps_limit(p_payload, 4000000);
   -- ponowne wysłanie tej samej paczki (np. po zerwaniu połączenia) zwraca ten sam numer
   select seq into s from public.klaps_ops where project_id = p_project and client_id = p_client and local_seq = p_local;
   if s is not null then return s; end if;
@@ -209,6 +224,7 @@ begin
   r := public.klaps_role(p_project);
   if r is null then raise exception 'klaps:not_member'; end if;
   if r not in ('owner', 'editor') then raise exception 'klaps:forbidden'; end if;
+  perform public.klaps_limit(p_payload, 40000000);
   select head_seq, snap_seq into h, sn from public.klaps_projects where id = p_project for update;
   perform public.klaps_check_epoch(p_project, p_payload);
   if p_seq > h or p_seq <= sn then return; end if;       -- nieaktualna migawka: ignorujemy
@@ -225,6 +241,9 @@ begin
   r := public.klaps_role(p_project);
   if r is null then raise exception 'klaps:not_member'; end if;
   if r not in ('owner', 'editor') then raise exception 'klaps:forbidden'; end if;
+  perform public.klaps_limit(p_id, 120);
+  perform public.klaps_limit(p_payload, 12000000);
+  if (select count(*) from public.klaps_blobs where project_id = p_project) >= 500 then raise exception 'klaps:quota'; end if;
   perform public.klaps_check_epoch(p_project, p_payload);
   insert into public.klaps_blobs(project_id, id, payload) values (p_project, p_id, p_payload) on conflict do nothing;
 end $$;
@@ -249,6 +268,8 @@ language plpgsql security definer set search_path = public as $$
 begin
   if auth.uid() is null then raise exception 'klaps:not_signed_in'; end if;
   if length(p_device) > 80 or length(p_pub) > 400 then raise exception 'klaps:too_big'; end if;
+  if not exists (select 1 from public.klaps_devices where user_id = auth.uid() and device_id = p_device)
+     and (select count(*) from public.klaps_devices where user_id = auth.uid()) >= 20 then raise exception 'klaps:quota'; end if;
   insert into public.klaps_profiles(id) values (auth.uid()) on conflict do nothing;
   insert into public.klaps_devices(user_id, device_id, pub) values (auth.uid(), p_device, p_pub)
   on conflict (user_id, device_id) do update set pub = excluded.pub;
@@ -261,6 +282,9 @@ language plpgsql security definer set search_path = public as $$
 declare cur int; h bigint; b jsonb; n int := 0;
 begin
   if public.klaps_role(p_project) is distinct from 'owner' then raise exception 'klaps:forbidden'; end if;
+  perform public.klaps_limit(p_title_enc, 2000);
+  perform public.klaps_limit(p_snapshot, 40000000);
+  if jsonb_typeof(coalesce(p_boxes, '[]'::jsonb)) <> 'array' or jsonb_array_length(coalesce(p_boxes, '[]'::jsonb)) > 2000 or length(coalesce(p_boxes, '[]'::jsonb)::text) > 4000000 then raise exception 'klaps:too_big'; end if;
   select key_epoch, head_seq into cur, h from public.klaps_projects where id = p_project for update;
   if p_epoch <> cur + 1 or public.klaps_epoch_of(p_title_enc) <> p_epoch or public.klaps_epoch_of(p_snapshot) <> p_epoch then raise exception 'klaps:bad_epoch'; end if;
   if p_head <> h then raise exception 'klaps:head_moved'; end if;
@@ -286,6 +310,7 @@ begin
   r := public.klaps_role(p_project);
   if r is null then raise exception 'klaps:not_member'; end if;
   if r not in ('owner', 'editor') then raise exception 'klaps:forbidden'; end if;
+  perform public.klaps_limit(p_title_enc, 2000);
   perform public.klaps_check_epoch(p_project, p_title_enc);
   update public.klaps_projects set title_enc = p_title_enc, updated_at = now() where id = p_project;
 end $$;
@@ -296,6 +321,9 @@ declare iid uuid;
 begin
   if public.klaps_role(p_project) is distinct from 'owner' then raise exception 'klaps:forbidden'; end if;
   if p_role not in ('editor', 'viewer') then raise exception 'klaps:bad_role'; end if;
+  perform public.klaps_limit(p_secret, 200);
+  perform public.klaps_limit(p_secret_enc, 2000);
+  if (select count(*) from public.klaps_invites where project_id = p_project) >= 500 then raise exception 'klaps:quota'; end if;
   if length(coalesce(p_secret, '')) < 20 then raise exception 'klaps:weak_secret'; end if;
   insert into public.klaps_invites(project_id, code_hash, secret_enc, role, created_by, expires_at, max_uses)
   values (p_project, encode(digest(p_secret, 'sha256'), 'hex'), p_secret_enc, p_role, auth.uid(),

@@ -3,7 +3,7 @@
 import { T, T_ } from './i18n';
 import { Zip } from './zip';
 import { Core } from './core';
-import { decodeText, loadScript } from './files';
+import { decodeText } from './files';
 /* ===== TABELE: odczyt XLSX / CSV / XLS (import shotlisty) i rozpoznawanie kolumn ===== */
 const Table = (() => {
   const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
@@ -81,18 +81,14 @@ const Table = (() => {
     return rows.filter((r) => r.some((c) => String(c).trim() !== ''));
   }
 
-  /* ---------- XLS (stary format Excela): czytnik SheetJS ładowany na żądanie ---------- */
-  const SHEETJS = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-  async function readXls(bytes) {
-    if (!window.XLSX) {
-      try { await loadScript(SHEETJS); } catch (e) { throw new Error(T('Nie udało się wczytać modułu do starych plików XLS. Zapisz plik w Excelu jako XLSX albo CSV i spróbuj ponownie.')); }
-    }
-    if (!window.XLSX) throw new Error(T('Nie udało się wczytać modułu do starych plików XLS. Zapisz plik w Excelu jako XLSX albo CSV i spróbuj ponownie.'));
-    const wb = window.XLSX.read(bytes, { type: 'array' });
-    return wb.SheetNames.map((n) => ({ name: n, rows: window.XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' }).map((r) => r.map((c) => (typeof c === 'number' ? { n: c, s: numStr(c) } : c == null ? '' : String(c)))) }));
+  /* ---------- XLS (stary format Excela) ----------
+     Nieobsługiwany: wymagałby zewnętrznego modułu (SheetJS) pobieranego z internetu w trakcie pracy programu,
+     czyli obcego kodu wykonywanego w aplikacji. Excel i Numbers zapisują ten sam arkusz jako XLSX albo CSV. */
+  async function readXls() {
+    throw new Error(T('Stary format XLS nie jest obsługiwany. Zapisz plik w Excelu jako XLSX albo CSV i spróbuj ponownie.'));
   }
 
-  /** czy plik to stary XLS (wymaga modułu SheetJS ładowanego w oknie programu, nie w wątku roboczym) */
+  /** czy plik to stary XLS (nieobsługiwany – patrz wyżej) */
   const isLegacyXls = (fileName, bytes) => { const buf = new Uint8Array(bytes); const name = (fileName || '').toLowerCase(); const zip = buf[0] === 0x50 && buf[1] === 0x4b; return !zip && ((buf[0] === 0xd0 && buf[1] === 0xcf && buf[2] === 0x11 && buf[3] === 0xe0) || /\.xls$/.test(name)); };
   async function readFile(file) { return readBytes(file.name, await file.arrayBuffer()); }
   /** odczyt tabeli z bajtów (działa także w wątku roboczym, poza starym XLS) */
@@ -104,9 +100,9 @@ const Table = (() => {
     const isOle = buf[0] === 0xd0 && buf[1] === 0xcf && buf[2] === 0x11 && buf[3] === 0xe0;
     let sheets;
     if (isZip || /\.xlsx$|\.xlsm$/.test(name)) sheets = await readXlsx(buf);
-    else if (isOle || /\.xls$/.test(name)) sheets = await readXls(buf);
+    else if (isOle || /\.xls$/.test(name)) sheets = await readXls();
     else if (/\.(csv|tsv|txt)$/.test(name) || !name.includes('.')) sheets = [{ name: 'CSV', rows: parseCsv(decodeText(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength))) }];
-    else throw new Error(T('Nieobsługiwany format pliku. Wybierz XLSX, XLS albo CSV.'));
+    else throw new Error(T('Nieobsługiwany format pliku. Wybierz XLSX albo CSV.'));
     sheets = sheets.map((s) => ({ name: s.name, rows: s.rows.filter((r) => r.some((c) => cellStr(c).trim() !== '')) })).filter((s) => s.rows.length);
     if (!sheets.length) throw new Error(T('Plik nie zawiera danych.'));
     return { file: file.name, sheets };

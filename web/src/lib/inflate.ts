@@ -70,8 +70,30 @@ function decodeTrees(d: D, lt: Tree, dt: Tree) {
   buildTree(lt, lengths, 0, hlit);
   buildTree(dt, lengths, hlit, hdist);
 }
+/** Limit rozmiaru po rozpakowaniu. Chroni przed „bombą” (mały plik ZIP/XLSX/DOCX/.klaps albo paczka z chmury,
+    która rozpręża się do gigabajtów i zawiesza program). 256 MB to wielokrotnie więcej niż największy prawdziwy projekt. */
+export const MAX_INFLATE = 256 * 1024 * 1024;
+export class TooBigError extends Error { code = 'too_big'; constructor() { super('Plik po rozpakowaniu jest za duży (limit 256 MB).'); } }
+/** czyta strumień do pamięci, przerywając po przekroczeniu limitu */
+export async function readLimited(stream: ReadableStream<Uint8Array>, max = MAX_INFLATE): Promise<Uint8Array> {
+  const r = stream.getReader();
+  const parts: Uint8Array[] = [];
+  let n = 0;
+  for (;;) {
+    const { done, value } = await r.read();
+    if (done) break;
+    n += value.length;
+    if (n > max) { try { await r.cancel(); } catch { /* strumień już zamknięty */ } throw new TooBigError(); }
+    parts.push(value);
+  }
+  const out = new Uint8Array(n);
+  let o = 0;
+  for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
 function ensure(d: D, extra: number) {
   if (d.dl + extra <= d.dest.length) return;
+  if (d.dl + extra > MAX_INFLATE) throw new TooBigError();
   let n = d.dest.length * 2 || 1024;
   while (n < d.dl + extra) n *= 2;
   const b = new Uint8Array(n); b.set(d.dest.subarray(0, d.dl)); d.dest = b;
@@ -127,8 +149,8 @@ export async function inflateRaw(src: Uint8Array): Promise<Uint8Array> {
   if (typeof DecompressionStream !== 'undefined') {
     try {
       const s = new Blob([src as BlobPart]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-      return new Uint8Array(await new Response(s).arrayBuffer());
-    } catch { /* zapas poniżej */ }
+      return await readLimited(s as ReadableStream<Uint8Array>);
+    } catch (e) { if (e instanceof TooBigError) throw e; /* inny błąd: zapas poniżej */ }
   }
   return inflateRawSync(src);
 }

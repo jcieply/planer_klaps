@@ -12,12 +12,13 @@ const until = async (fn, what, ms = 15000) => { const t = Date.now(); for (;;) {
 const projectFiles = () => fs.readdirSync(projects).filter((f) => f.endsWith('.klaps.json'));
 const titleOf = (f) => JSON.parse(fs.readFileSync(path.join(projects, f), 'utf8')).meta.title;
 
+const LIC = require('./license-fixture').testLicense();
 function watch(page, tag) {
   page.on('pageerror', (e) => errors.push(`${tag}: ${e}`));
   page.on('console', (m) => { if (m.type() === 'error' || /Content Security Policy/i.test(m.text())) errors.push(`${tag} console: ${m.text()}`); });
 }
 async function start() {
-  const app = await electron.launch({ args: ['--no-sandbox', path.join(__dirname, '..')], env: Object.assign({}, process.env, { KLAPS_DATA_DIR: data, KLAPS_PROJECTS_DIR: projects, KLAPS_FORCE_LAUNCHER: '1' }) });
+  const app = await electron.launch({ args: ['--no-sandbox', path.join(__dirname, '..')], env: Object.assign({}, process.env, { KLAPS_DATA_DIR: data, KLAPS_PROJECTS_DIR: projects, KLAPS_FORCE_LAUNCHER: '1' }, LIC.env) });
   app.on('window', (p) => watch(p, 'okno'));
   return app;
 }
@@ -40,13 +41,20 @@ async function closeApp(app) {
   assert.strictEqual(refused.ok, false, 'bez licencji proces główny nie otwiera projektu');
   assert.strictEqual(app.windows().length, 1);
   await sleep(800); await shot(lc, '0-license');
-  await lc.fill('#lc-key', 'KLAPS-2026-AAAA-PROD'); await lc.click('[data-act="license-go"]');
+  // podrobienie z wersji 2.7.0: skrót z listy zapisany do pliku niczego nie aktywuje
+  fs.writeFileSync(path.join(data, 'license.json'), JSON.stringify({ v: 1, hash: LIC.keys.keys[0].hash, at: 1 }));
+  assert.strictEqual((await lc.evaluate(() => window.klapsDesktop.license.status())).active, false, 'skrót w pliku nie daje licencji');
+  await lc.fill('#lc-key', 'KLAPS-00000-00000-00000-00000'); await lc.click('[data-act="license-go"]');
   await lc.waitForSelector('#lc-lic-err');
   assert.ok(/Odmowa dostępu/.test(await lc.textContent('#lc-lic-err')), 'błędny klucz: odmowa dostępu');
-  assert.ok(!fs.existsSync(path.join(data, 'license.json')), 'błędny klucz nie zapisuje aktywacji');
-  await lc.fill('#lc-key', 'klaps-2026-7q4m-prod'); await lc.click('[data-act="license-go"]');
+  await lc.fill('#lc-key', 'KLAPS-2026-7Q4M-PROD'); await lc.click('[data-act="license-go"]');
+  await sleep(1200);
+  assert.strictEqual(await lc.locator('#lc-name').count(), 0, 'wycofany klucz testowy z 2.7.0 nie działa');
+  await lc.fill('#lc-key', LIC.key.toLowerCase()); await lc.click('[data-act="license-go"]');
   await lc.waitForSelector('#lc-name', { timeout: 20000 });
-  assert.ok(fs.existsSync(path.join(data, 'license.json')), 'aktywacja zapisana w folderze danych programu');
+  assert.ok(!fs.readFileSync(path.join(data, 'secrets.json'), 'utf8').includes('"hash"'), 'aktywacja to klucz w magazynie sekretów');
+  const leak = await lc.evaluate(() => window.klapsDesktop.secrets.get('license.key').then((v) => 'odczytano: ' + v, (e) => 'odmowa'));
+  assert.strictEqual(leak, 'odmowa', 'okno programu nie może odczytać klucza licencyjnego');
   const size = await lc.evaluate(() => [innerWidth, innerHeight]);
   assert.deepStrictEqual(size, [880, 540], 'małe okno startowe 880×540, jest ' + size);
   assert.strictEqual(app.windows().length, 1, 'na starcie tylko okno startowe');

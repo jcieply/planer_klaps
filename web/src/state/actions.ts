@@ -8,6 +8,7 @@ import { KLAPS_EXT, isKlaps, readKlaps } from '../domain/klapsfile';
 import type { Geo, ProjectState } from '../domain/model';
 import { fileStem } from '../domain/reportmeta';
 import { heavy } from '../lib/heavy';
+import { parseJson } from '../lib/safejson';
 import { I18N, T_ } from '../domain/i18n';
 import { clearHistory, flags, getSt, mutate, useProject } from './project';
 import * as cloud from '../collab/cloud';
@@ -316,7 +317,7 @@ export async function importProjectFile(file: File) {
       return;
     }
     let o: unknown;
-    try { o = JSON.parse(new TextDecoder().decode(bytes)); } catch { throw new Error(T('To nie jest plik projektu Klaps')); }
+    try { o = parseJson(new TextDecoder().decode(bytes)); } catch { throw new Error(T('To nie jest plik projektu Klaps')); }
     const { describeZod, EncryptedFileSchema, ProjectFileSchema } = await import('../domain/schema');
     if (Store.isEncryptedFile(o)) {
       const v = EncryptedFileSchema.safeParse(o);

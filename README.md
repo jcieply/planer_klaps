@@ -43,12 +43,17 @@ Kopię z wersji webowej wczytasz przez Plik → „Wczytaj projekt z kopii…”
 * `.github/workflows/` – testy (`ci.yml`) i budowanie instalatorów.
 
 ## Licencja
-Przy pierwszym uruchomieniu na danym urządzeniu okno startowe prosi o **klucz licencyjny** (format `KLAPS-RRRR-XXXX-TYP`).
-Klucz testowy: `KLAPS-2026-7Q4M-PROD`. Poprawny klucz zapisuje się w folderze danych programu (`license.json`, na Androidzie
-w ustawieniach aplikacji) – kolejne uruchomienia nie pytają. Bez aktywnej licencji proces główny nie otwiera żadnego projektu.
+Przy pierwszym uruchomieniu na danym urządzeniu okno startowe prosi o **klucz licencyjny**
+(`KLAPS-XXXXX-XXXXX-XXXXX-XXXXX`, 100 bitów losowości). Klucz trafia do magazynu sekretów systemu (Keychain / DPAPI)
+i jest sprawdzany przy każdym uruchomieniu; kolejne starty o niego nie pytają. Bez ważnego klucza proces główny nie
+otwiera żadnego projektu.
 
-W programie są tylko skróty SHA-256 kluczy (`electron/license-keys.json`), nie same klucze. Nowy klucz = nowy wpis z jego
-skrótem; usunięcie wpisu w kolejnej wersji unieważnia klucz także tam, gdzie był aktywowany.
+- W programie są tylko skróty SHA-256 kluczy (`electron/license-keys.json`). **Kluczy nie zapisuje się w repozytorium.**
+- Nowy klucz: `node scripts/license-key.js <id> "opis"` – wypisuje klucz na ekran i dopisuje jego skrót do listy.
+  Klucz działa w wersji programu zbudowanej po tej zmianie.
+- Wycofanie klucza: usuń jego wpis z listy i wydaj nową wersję.
+- Klucz testowy z wersji 2.7.0 (`KLAPS-2026-…-PROD`) jest wycofany.
+
 Uwaga: to zabezpieczenie po stronie programu – utrudnia nieuprawnione rozpowszechnianie, ale nie zastąpi weryfikacji na
 serwerze (ten sam klucz zadziała na wielu urządzeniach, a zdeterminowana osoba może zmodyfikować program).
 

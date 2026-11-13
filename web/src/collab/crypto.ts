@@ -2,6 +2,8 @@
  *  - klucz projektu K (AES-GCM 256) powstaje u właściciela i NIGDY nie trafia na serwer;
  *  - kod zaproszenia = sekret (serwer zna tylko jego skrót) + klucz K, więc kto ma kod, ma dostęp do treści;
  *  - każda paczka zmian / migawka / zdjęcie jest szyfrowana osobno ze świeżym IV. */
+import { readLimited } from '../lib/inflate';
+import { parseJson } from '../lib/safejson';
 const subtle = (): SubtleCrypto => globalThis.crypto.subtle;
 const rnd = (n: number): Uint8Array => globalThis.crypto.getRandomValues(new Uint8Array(n));
 const te = new TextEncoder();
@@ -61,8 +63,9 @@ export async function decryptBytes(key: ProjectKey, s: string): Promise<Uint8Arr
 async function gz(u: Uint8Array, dir: 'c' | 'd'): Promise<Uint8Array> {
   const s = dir === 'c' ? new CompressionStream('gzip') : new DecompressionStream('gzip');
   const w = s.writable.getWriter();
-  void w.write(u as BufferSource).then(() => w.close());
-  return new Uint8Array(await new Response(s.readable).arrayBuffer());
+  void w.write(u as BufferSource).then(() => w.close()).catch(() => undefined);
+  // rozpakowanie z limitem: paczka od współpracownika nie może „rozprężyć się” do gigabajtów i zawiesić programu
+  return dir === 'd' ? readLimited(s.readable as ReadableStream<Uint8Array>) : new Uint8Array(await new Response(s.readable).arrayBuffer());
 }
 export async function encryptJson(key: ProjectKey, v: unknown): Promise<string> {
   let raw: Uint8Array = te.encode(JSON.stringify(v));
@@ -75,7 +78,7 @@ export async function encryptJson(key: ProjectKey, v: unknown): Promise<string> 
 export async function decryptJson<T = unknown>(key: ProjectKey, s: string): Promise<T> {
   const u = await decryptBytes(key, s);
   const body = u[0] === 1 ? await gz(u.subarray(1), 'd') : u.subarray(1);
-  return JSON.parse(td.decode(body)) as T;
+  return parseJson<T>(td.decode(body));
 }
 
 /* ---------- kod zaproszenia ---------- */

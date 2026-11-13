@@ -8,7 +8,19 @@ const profile = require('./profile');
 const intents = require('./intent');
 const secretsLib = require('./secrets');
 const license = require('./license');
-const licensed = () => { try { return license.status(dataDir()).active; } catch (e) { return false; } };
+/* Licencja: klucz leży w magazynie sekretów systemu i jest sprawdzany przy każdym uruchomieniu (wynik pamiętany do zamknięcia programu).
+   Lista skrótów do testów end-to-end działa wyłącznie w programie uruchomionym ze źródeł (nie w instalatorze). */
+const licenseKeys = () => {
+  if (!app.isPackaged && process.env.KLAPS_TEST_LICENSE_KEYS) { try { return JSON.parse(fs.readFileSync(process.env.KLAPS_TEST_LICENSE_KEYS, 'utf8')); } catch (e) { /* lista wbudowana */ } }
+  return undefined;
+};
+const cipher = () => ({ available: () => safeStorage.isEncryptionAvailable(), encrypt: (t) => safeStorage.encryptString(t), decrypt: (b) => safeStorage.decryptString(b) });
+const licenseStore = () => { const v = secretsLib.open(dataDir(), cipher()); return { get: () => v.get(license.SECRET), set: (k) => v.set(license.SECRET, k), remove: () => v.remove(license.SECRET) }; };
+let licenseCache = null;
+const licenseStatus = () => { if (!licenseCache || !licenseCache.active) licenseCache = license.status(licenseStore(), licenseKeys()); return licenseCache; };
+const licensed = () => { try { return licenseStatus().active; } catch (e) { return false; } };
+/** sekrety zastrzeżone dla procesu głównego – okno programu nie może ich czytać ani zmieniać */
+const reserved = (n) => { if (typeof n === 'string' && /^license\./i.test(n)) throw new Error('Niepoprawna nazwa sekretu'); return n; };
 
 // katalogi można podmienić zmiennymi środowiskowymi (testy nie dotykają prawdziwych danych użytkownika)
 if (process.env.KLAPS_DATA_DIR) app.setPath('userData', process.env.KLAPS_DATA_DIR);
@@ -199,10 +211,10 @@ function ipc() {
   handle('profile:get', () => profile.get(dataDir()));
   handle('profile:set', (_e, p) => profile.set(dataDir(), p));
   handle('profile:prefs', (_e, p) => profile.setPrefs(dataDir(), p));
-  const vault = () => secretsLib.open(dataDir(), { available: () => safeStorage.isEncryptionAvailable(), encrypt: (t) => safeStorage.encryptString(t), decrypt: (b) => safeStorage.decryptString(b) });
-  handle('secrets:get', (_e, n) => vault().get(n));
-  handle('secrets:set', (_e, n, v) => vault().set(n, v));
-  handle('secrets:remove', (_e, n) => vault().remove(n));
+  const vault = () => secretsLib.open(dataDir(), cipher());
+  handle('secrets:get', (_e, n) => vault().get(reserved(n)));
+  handle('secrets:set', (_e, n, v) => vault().set(reserved(n), v));
+  handle('secrets:remove', (_e, n) => vault().remove(reserved(n)));
   handle('secrets:info', () => ({ secure: vault().secure }));
   handle('session:get', () => session);
   handle('launcher:launch', (_e, raw) => {
@@ -211,9 +223,10 @@ function ipc() {
     try { return openMain(intent); } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   });
   handle('launcher:show', () => { void showLauncher(); });
-  handle('license:status', () => license.status(dataDir()));
+  handle('license:status', () => licenseStatus());
   handle('license:activate', async (_e, key) => {
-    const r = license.activate(dataDir(), key);
+    const r = license.activate(licenseStore(), key, licenseKeys());
+    licenseCache = null;
     // spowolnienie zgadywania kluczy
     if (!r.ok) await new Promise((res) => setTimeout(res, 700));
     return r;
@@ -238,6 +251,8 @@ if (!single) app.quit();
 else {
   app.on('second-instance', () => { const w = alive(main) ? main : launcher; if (alive(w)) { if (w.isMinimized()) w.restore(); w.show(); w.focus(); } });
   app.whenReady().then(() => {
+  // pozostałość po wersji 2.7.0 (aktywacja zapisana jako skrót) – nieużywana, usuwana
+  for (const f of ['license.json', 'license.bak']) { try { fs.unlinkSync(path.join(dataDir(), f)); } catch (e) { /* brak pliku */ } }
     protocol.handle('klaps', async (req) => {
       const u = new URL(req.url);
       let rel = decodeURIComponent(u.pathname);

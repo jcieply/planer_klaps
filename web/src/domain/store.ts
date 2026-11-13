@@ -8,6 +8,7 @@ import { Core } from './core';
 import { Vault } from './vault';
 import type { ProjectMeta, ProjectState } from './model';
 import { writeEncrypted, writePlain } from './klapsfile';
+import { parseJson } from '../lib/safejson';
 
 export interface Raw { plan: string; script: string; media: string }
 type Key = { key: CryptoKey; salt: string; iter: number };
@@ -218,10 +219,10 @@ function createStore() {
     return { plan: JSON.stringify(plan), script: JSON.stringify(texts), media: JSON.stringify(st.media || {}) };
   }
   function join(planStr: string, scriptStr: string, mediaStr: string): ProjectState {
-    const st = JSON.parse(planStr);
-    const texts = scriptStr ? JSON.parse(scriptStr) : {};
+    const st = parseJson(planStr);
+    const texts = scriptStr ? parseJson(scriptStr) : {};
     st.scenes.forEach((s: any) => { s.text = texts[s.id] || ''; });
-    if (mediaStr) { try { st.media = JSON.parse(mediaStr); } catch { st.media = st.media || {}; } }
+    if (mediaStr) { try { st.media = parseJson(mediaStr); } catch { st.media = st.media || {}; } }
     return Core.normalize(st);
   }
   const summary = (id: string, st: ProjectState): ProjectMeta => ({ id, title: st.meta.title || '', updatedAt: Date.now(), scenes: st.scenes.length, days: st.days.filter((d) => d.kind === 'shoot').length, demo: !!st.demo });

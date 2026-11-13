@@ -83,7 +83,9 @@ async function ensurePdfJs() {
 }
 export async function extractPdf(buf: ArrayBuffer, progress?: (msg: string) => void) {
   await ensurePdfJs();
-  const doc = await window.pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+  // isEvalSupported: false wyłącza w pdf.js ścieżkę kompilowania czcionek przez eval (CVE-2024-4367: kod wykonywany przez
+  // spreparowany PDF); czcionek i tak nie rysujemy – czytamy tylko tekst
+  const doc = await window.pdfjsLib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false, disableFontFace: true }).promise;
   const pages: any[] = [];
   for (let i = 1; i <= doc.numPages; i++) {
     if (progress) progress(T('Czytam stronę {i} z {n}…', { i, n: doc.numPages }));

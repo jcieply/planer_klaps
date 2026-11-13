@@ -1617,7 +1617,7 @@ I18N.add({
 I18N.add({
 "licencja aktywna": "licence active",
 "Wpisz klucz licencyjny.": "Enter the licence key.",
-"To nie wygląda na klucz Klaps Planer. Klucz ma postać KLAPS-RRRR-XXXX-XXXX.": "This does not look like a Klaps Planer key. The key has the form KLAPS-YYYY-XXXX-XXXX.",
+"To nie wygląda na klucz Klaps Planer. Klucz ma postać KLAPS-XXXXX-XXXXX-XXXXX-XXXXX.": "This does not look like a Klaps Planer key. The key has the form KLAPS-XXXXX-XXXXX-XXXXX-XXXXX.",
 "Odmowa dostępu: ten klucz licencyjny jest nieprawidłowy. Sprawdź, czy został przepisany bez błędów.": "Access denied: this licence key is not valid. Check that it was typed without mistakes.",
 "Aktywacja programu": "Activate the app",
 "Wpisz klucz licencyjny, który otrzymałeś razem z programem. Na tym urządzeniu podajesz go tylko raz.": "Enter the licence key you received with the app. You only need to enter it once on this device.",
@@ -1625,4 +1625,9 @@ I18N.add({
 "Klucz licencyjny": "Licence key",
 "Aktywuj": "Activate",
 "Nie masz klucza? Skontaktuj się z osobą, od której otrzymałeś program.": "No key? Contact the person you received the app from."
+});
+I18N.add({
+"Stary format XLS nie jest obsługiwany. Zapisz plik w Excelu jako XLSX albo CSV i spróbuj ponownie.": "The old XLS format is not supported. Save the file in Excel as XLSX or CSV and try again.",
+"Nieobsługiwany format pliku. Wybierz XLSX albo CSV.": "Unsupported file format. Choose XLSX or CSV.",
+"Import ujęć z pliku Excel (XLSX) albo CSV": "Import shots from an Excel file (XLSX) or CSV"
 });

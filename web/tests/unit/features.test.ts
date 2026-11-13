@@ -121,3 +121,26 @@ describe('historia wersji', () => {
     expect(await Store.snapshots('h1')).toEqual([]);
   });
 });
+
+describe('ochrona przed spreparowanymi danymi', () => {
+  it('rozpakowanie ma limit rozmiaru (bomba ZIP / gzip)', async () => {
+    const { readLimited, TooBigError, inflateRawSync } = await import('../../src/lib/inflate');
+    // 4 MB zer spakowane do kilku kB; limit 1 MB musi przerwać rozpakowanie
+    const zeros = new Uint8Array(4 * 1024 * 1024);
+    const { deflateRawSync } = await import('node:zlib');
+    const packed = new Uint8Array(deflateRawSync(zeros));
+    expect(packed.length).toBeLessThan(20000);
+    const s = () => new ReadableStream<Uint8Array>({ start(c) { c.enqueue(packed); c.close(); } }).pipeThrough(new DecompressionStream('deflate-raw') as any) as ReadableStream<Uint8Array>;
+    await expect(readLimited(s(), 1024 * 1024)).rejects.toBeInstanceOf(TooBigError);
+    expect((await readLimited(s(), 8 * 1024 * 1024)).length).toBe(zeros.length);
+    expect(inflateRawSync(packed).length).toBe(zeros.length);
+  });
+  it('klucz __proto__ z pliku albo paczki jest pomijany', async () => {
+    const { parseJson } = await import('../../src/lib/safejson');
+    const o = parseJson('{"meta":{"title":"X","__proto__":{"admin":true}},"__proto__":{"zly":1}}');
+    expect(o.meta.title).toBe('X');
+    expect(Object.prototype.hasOwnProperty.call(o.meta, '__proto__')).toBe(false);
+    expect(Object.assign({}, o.meta).admin).toBeUndefined();
+    expect(({} as any).zly).toBeUndefined();
+  });
+});

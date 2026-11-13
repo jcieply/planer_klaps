@@ -35,6 +35,18 @@ select klaps_test.expect_err('insert into public.klaps_activity(project_id, auth
 select klaps_test.expect_err('select public.klaps_log_activity(''' || :'pid' || ''', repeat(''x'', 20001))', 'too_big');
 select public.klaps_log_activity(:'pid', 'x') from generate_series(1, 1005);
 select klaps_test.eq((select count(*) from public.klaps_activity), 1000::bigint, 'dziennik zmian trzyma 1000 ostatnich wpisów');
+-- limity rozmiaru i walidacja avatara (ochrona przed zapchaniem bazy i śledzeniem przez zewnętrzny obrazek)
+select klaps_test.expect_err('select public.klaps_push_ops(''' || :'pid' || ''', ''c1'', 50, repeat(''x'', 4000001))', 'too_big');
+select klaps_test.expect_err('select public.klaps_push_ops(''' || :'pid' || ''', repeat(''c'', 81), 50, ''x'')', 'too_big');
+select klaps_test.expect_err('select public.klaps_put_snapshot(''' || :'pid' || ''', 2, repeat(''x'', 40000001))', 'too_big');
+select klaps_test.expect_err('select public.klaps_put_blob(''' || :'pid' || ''', ''b-big'', repeat(''x'', 12000001))', 'too_big');
+select klaps_test.expect_err('select public.klaps_set_title(''' || :'pid' || ''', repeat(''x'', 2001))', 'too_big');
+select klaps_test.expect_err('select public.klaps_create_project(repeat(''x'', 2001), ''s'')', 'too_big');
+select klaps_test.expect_err('select public.klaps_upsert_profile(''A'', ''B'', ''https://zly.example/sledz.png'', ''#fff'')', 'bad_avatar');
+select klaps_test.expect_err('select public.klaps_upsert_profile(''A'', ''B'', ''data:text/html;base64,AAAA'', ''#fff'')', 'bad_avatar');
+select public.klaps_upsert_profile('Anna Nowak', 'Kierownik produkcji', '', '#e0a526');
+select public.klaps_upsert_profile('Anna Nowak', 'Kierownik produkcji', 'data:image/jpeg;base64,AAAA', '#e0a526');
+select klaps_test.eq((select count(*) from public.klaps_ops), 2::bigint, 'odrzucone paczki nie zostawiają śladu');
 -- bezpośrednie zapisy do tabel są zablokowane
 select klaps_test.expect_err('insert into public.klaps_ops(project_id, seq, author, client_id, local_seq, payload) values (''' || :'pid' || ''', 99, ''' || :u1 || ''', ''x'', 1, ''p'')', 'permission denied');
 select klaps_test.expect_err('update public.klaps_members set role = ''owner''', 'permission denied');

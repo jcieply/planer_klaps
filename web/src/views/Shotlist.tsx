@@ -56,8 +56,8 @@ export function Shotlist() {
   const right = <>
     <Field label={T('Scena')}><Select data-act-change="sh-scene" value={f} onChange={(v) => setUI((s) => { s.shF.scene = v; })} options={[['', T('Wszystkie sceny')], ...st.scenes.map((s) => [s.id, `${s.num} · ${s.place || s.site || ''}`.trim()] as [string, string])]} /></Field>
     <Btn act="shot-add" icon="plus" onClick={addShot}>{T('Dodaj ujęcie')}</Btn>
-    <Btn act="shots-import" icon="upload" title={T('Import ujęć z pliku Excel (XLSX, XLS) albo CSV')} onClick={() => fileRef.current?.click()}>{T('Importuj z Excela / CSV')}</Btn>
-    <input ref={fileRef} type="file" id="shots-in" hidden accept=".xlsx,.xlsm,.xls,.csv,.tsv,.txt,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => { const fl = e.target.files?.[0]; e.target.value = ''; if (fl) void readShotFile(fl); }} />
+    <Btn act="shots-import" icon="upload" title={T('Import ujęć z pliku Excel (XLSX) albo CSV')} onClick={() => fileRef.current?.click()}>{T('Importuj z Excela / CSV')}</Btn>
+    <input ref={fileRef} type="file" id="shots-in" hidden accept=".xlsx,.xlsm,.csv,.tsv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => { const fl = e.target.files?.[0]; e.target.value = ''; if (fl) void readShotFile(fl); }} />
     <ExportBtns prefix="shot-export" enabled={st.shots.length > 0} onPdf={() => doExport('pdf', ['shotlist'], 'shotlista')} onXlsx={() => doExport('xlsx', ['shotlist'], 'shotlista')} />
   </>;
   return <>

@@ -1,10 +1,14 @@
 # Klaps Planer na Androida (Capacitor) – od wersji 2.7.0
 
+> **Stan na 2.7.1: wersja na Androida jest wstrzymana.** Build uruchamia się tylko ręcznie i nadal jest wersją debug.
+> Przed udostępnieniem komukolwiek trzeba wykonać poprawki z audytu bezpieczeństwa (podpisany release, `allowBackup="false"`,
+> CSP, bezpieczne przechowywanie kluczy).
+
 Aplikacja na Androida to ten sam program (React) w natywnym oknie WebView, zbudowany z Capacitorem 8.
 Okno startowe, licencja, projekty, wszystkie zakładki, eksporty i chmura działają tym samym kodem co na komputerze.
 
 ## Jak zdobyć instalator (APK)
-GitHub → **Actions** → „Build Android” → **Run workflow** (buduje się też sam po każdym wypchnięciu na `main`).
+GitHub → **Actions** → „Build Android” → **Run workflow** (tylko ręcznie).
 Po kilku minutach pobierz artefakt `Klaps-Planer-Android` – plik `Klaps-Planer-<wersja>-android.apk`.
 Na telefonie: otwórz plik, zezwól na „instalowanie nieznanych aplikacji” dla przeglądarki / menedżera plików.
 

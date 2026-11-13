@@ -28,7 +28,6 @@ export async function runTask(task: Task, args: any, lang: 'pl' | 'en'): Promise
       case 'xlsx': return await Reports.buildXlsx(args.st, args.sections, args.opts);
       case 'parse': return parseScript(args.raw, args.o);
       case 'table': {
-        if (args.worker && Table.isLegacyXls(args.name, args.bytes)) { const e = new Error('main-thread') as Error & { code?: string }; e.code = 'main'; throw e; }
         return await Table.readBytes(args.name, args.bytes);
       }
       default: throw new Error('Nieznane zadanie: ' + String(task));
